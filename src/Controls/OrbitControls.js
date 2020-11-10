@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { MAIN_LOOP_EVENTS } from 'Core/MainLoop';
+// import { MAIN_LOOP_EVENTS } from 'Core/MainLoop';
 
 const xAxis = new THREE.Vector3();
 const yAxis = new THREE.Vector3();
@@ -40,20 +40,11 @@ class OrbitControls extends THREE.EventDispatcher {
         this.view = view;
         this.options = options;
         this._camera3D = view.camera.camera3D;
-        this.moves = new Set();
-        this.moveSpeed = 10; // backward or forward move speed in m/s
 
         // temporary cursor position
         this._posX = 0;
         this._posY = 0;
-        // temporary spherical
-        this._spherical = new THREE.Spherical(1.0, Math.PI / 2, 0);
 
-        this._viewMatrix = new THREE.Matrix4();
-        this._viewMatrix.identity();
-        this._camera3D.matrixWorld = this._viewMatrix;
-
-        this._grabPosition = new THREE.Vector3(0, 0, 0);
         this._eye = new THREE.Vector3(0, 0, 0);
         this._eye.copy(this._camera3D.position);
         this._target = new THREE.Vector3(0, 0, 0);
@@ -73,8 +64,8 @@ class OrbitControls extends THREE.EventDispatcher {
 
         this.view.domElement.addEventListener('mousedown', this._onMouseDown, false);
         // for out of window
-        window.addEventListener('mousemove', this._onPointerMove, false);
-        window.addEventListener('mouseup', this._onMouseUp, false);
+        document.addEventListener('mousemove', this._onPointerMove, false);
+        document.addEventListener('mouseup', this._onMouseUp, false);
         this.view.domElement.addEventListener('mousewheel', this._onMouseWheel, false);
         this.view.domElement.addEventListener('DOMMouseScroll', this._onMouseWheel, false); // firefox
         this.view.domElement.addEventListener('touchstart', this._onTouchStart, false);
@@ -83,8 +74,6 @@ class OrbitControls extends THREE.EventDispatcher {
         this.view.domElement.addEventListener('keyup', this._onKeyUp, true);
         this.view.domElement.addEventListener('keydown', this._onKeyDown, true);
         this.view.domElement.addEventListener('contextmenu', this._onContextMenu, false);
-
-        this.view.addFrameRequester(MAIN_LOOP_EVENTS.AFTER_CAMERA_UPDATE, this.update.bind(this));
 
         // enable focus
         this.view.domElement.setAttribute('tabindex', '0');
@@ -100,8 +89,8 @@ class OrbitControls extends THREE.EventDispatcher {
 
     dispose() {
         this.view.domElement.removeEventListener('mousedown', this._onMouseDown, false);
-        window.removeEventListener('mousemove', this._onPointerMove, false);
-        window.removeEventListener('mouseup', this._onMouseUp, false);
+        document.removeEventListener('mousemove', this._onPointerMove, false);
+        document.removeEventListener('mouseup', this._onMouseUp, false);
         this.view.domElement.removeEventListener('mousewheel', this._onMouseWheel, false);
         this.view.domElement.removeEventListener('DOMMouseScroll', this._onMouseWheel, false); // firefox
         this.view.domElement.removeEventListener('touchstart', this._onTouchStart, false);
