@@ -4,6 +4,7 @@
  */
 
 /// 地理院地図(Color)を3D球体で表示する
+import { OBJLoader } from "./three/OBJLoader.js";
 
 function hideAllLayers(view) {
     var layers = view.getLayers();
@@ -29,16 +30,16 @@ function loadGSIColor(view, callback) {
 }
 
 function loadObjLayer(view, callback) {
-    itowns.Fetcher.json('./gsi.json').then(function (config) {
-        var mapSource = new itowns.TMSSource(config.source);
-        var layer = new itowns.ColorLayer(config.id, {
-            source: mapSource,
-            updateStrategy: {
-                type: 3
-            },
-        });
-        view.addLayer(layer);
-        if (callback) { callback(); }
+    var manager = new itowns.THREE.LoadingManager();
+    var objLoader = new OBJLoader(manager);
+    objLoader.load('teapot.obj', function (object) {
+        var material = new THREE.MeshBasicMaterial({color: 0x6699FF})
+        for (var i = 0; i < object.children.length; ++i) {
+            object.children[i].geometry.scale(100000, 100000, 100000);
+            object.children[i].material = material;
+        }
+        view.scene.add(object);
+        view.notifyChange();  
     });
 }
 
@@ -69,7 +70,7 @@ window.onload = function () {
     var controls = new itowns.OrbitControls(view);
 
     // objを出す
-    // loadObjLayer(view);
+    loadObjLayer(view);
 
     //injectChOWDER(view, viewerDiv);
 };
