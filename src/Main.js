@@ -21,6 +21,7 @@ export { default as FlyControls } from 'Controls/FlyControls';
 export { default as FirstPersonControls } from 'Controls/FirstPersonControls';
 export { default as StreetControls } from 'Controls/StreetControls';
 export { default as PlanarControls } from 'Controls/PlanarControls';
+export { default as OrbitControls } from 'Controls/OrbitControls';
 export { CONTROL_EVENTS } from 'Controls/GlobeControls';
 export { default as Feature2Mesh } from 'Converter/Feature2Mesh';
 export { default as FeaturesUtils } from 'Utils/FeaturesUtils';
