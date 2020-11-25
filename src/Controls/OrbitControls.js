@@ -11,10 +11,10 @@ function createViewMatrix(position, target, upVector) {
     xAxis.normalize();
     yAxis.crossVectors(zAxis, xAxis);
     return [
-        xAxis.x,           yAxis.x,           zAxis.x,          0,
-        xAxis.y,           yAxis.y,           zAxis.y,          0,
-        xAxis.z,           yAxis.z,           zAxis.z,          0,
-        -xAxis.dot(position),  -yAxis.dot(position),  -zAxis.dot(position),  1,
+        xAxis.x, yAxis.x, zAxis.x, 0,
+        xAxis.y, yAxis.y, zAxis.y, 0,
+        xAxis.z, yAxis.z, zAxis.z, 0,
+        -xAxis.dot(position), -yAxis.dot(position), -zAxis.dot(position), 1,
     ];
 }
 
@@ -116,10 +116,9 @@ class OrbitControls extends THREE.EventDispatcher {
         this._camera3D.position.copy(d);
         this._camera3D.quaternion.copy(q);
         this._camera3D.scale.copy(s);
+        
+        
         /*
-        this._camera3D.near = cameraParams.near;
-        this._camera3D.far = cameraParams.far;
-        this._camera3D.fov = cameraParams.fovy;
         this._camera3D.zoom = cameraParams.zoom;
         this._camera3D.filmOffset = cameraParams.filmOffset;
         this._camera3D.filmGauge = cameraParams.filmGauge;
@@ -159,17 +158,67 @@ class OrbitControls extends THREE.EventDispatcher {
         const rotZ = -2 * Math.PI * (coords.x - this._posX) / gfx.width * 0.25;
         const rotY = -2 * Math.PI * (coords.y - this._posY) / gfx.height * 0.25;
 
+        // console.log(rotZ);
+        // console.log(rotY);
+
+        // let cameraPositionVector = new THREE.Vector3(this._eye.x, this._eye.y, this._eye.z);
+        // let cameraUpVector = new THREE.Vector3(0, 0, -1);
+
+        // let u = (new THREE.Vector3()).copy(cameraUpVector);
+        // let w = (new THREE.Vector3()).copy(cameraPositionVector).cross(u);
+
+        // let wn = w.normalize();
+
+        // const quatZ = new THREE.Quaternion();
+        // const quatY = new THREE.Quaternion();
+
+        // quatZ.setFromAxisAngle(u, rotZ);
+        // quatY.setFromAxisAngle(wn, rotY);
+        // this._eye.applyQuaternion(quatY.multiply(quatZ));
+
+        // console.log(this._eye);
+
+        let cameraVector = (new THREE.Vector3()).copy(this._eye).sub(this._target);
+        let axis = new THREE.Vector3(0, 0, 1);
+
+        let axisY = (new THREE.Vector3().copy(cameraVector)).cross(axis);
+
         const quatZ = new THREE.Quaternion();
         const quatY = new THREE.Quaternion();
         // TODO axis is wrong
         quatZ.setFromAxisAngle(new THREE.Vector3(0, 0, 1), rotZ);
-        quatY.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rotY);
+        quatY.setFromAxisAngle(axisY.normalize(), rotY);
         this._eye.applyQuaternion(quatY.multiply(quatZ));
 
-        this.applyCameraMatrix();
+        console.log(quatY);
+        console.log(this._eye);
 
-        this._posX = coords.x;
-        this._posY = coords.y;
+        // let cameraVector = (new THREE.Vector3()).copy(this._eye).sub(this._target);
+        // let axis = new THREE.Vector3(0, 0, 1);
+
+        console.log(cameraVector.normalize());
+
+        // let angle = axis.dot(cameraVector.normalize());
+        let angle = axis.angleTo(cameraVector.normalize());
+
+        console.log('angle:' + angle * Math.PI / 180.0);
+
+        if (angle <= 89.0 * Math.PI / 180.0 && angle >= -89.0 * Math.PI / 180.0) {
+
+            this.applyCameraMatrix();
+
+            this._posX = coords.x;
+            this._posY = coords.y;
+        } else {
+            console.log('test');
+        }
+
+        // this.applyCameraMatrix();
+
+        // this._posX = coords.x;
+        // this._posY = coords.y;
+
+        console.log(this._eye);
     }
 
     pan(coords) {
@@ -205,18 +254,41 @@ class OrbitControls extends THREE.EventDispatcher {
 
     onMouseWheel(event) {
         let delta = 0;
+        let scalePer = this.radius;
+        if(this.radius === undefined){
+            scalePer = 10000;
+        }
         if (event.wheelDelta !== undefined) {
             delta = event.wheelDelta;
             // Firefox
         } else if (event.detail !== undefined) {
             delta = -event.detail;
         }
+        // console.log(scalePer);
 
         const targetToEye = (new THREE.Vector3()).copy(this._eye).sub(this._target);
         let rad = targetToEye.length();
-        rad -= delta * 10000;
-        const normal = targetToEye.normalize();
+
+        // rad -= delta * scalePer;
+
+        rad -= delta * 5000;
+
+        let normal = targetToEye.normalize();
+
         this._eye = (new THREE.Vector3()).copy(this._target).add(normal.multiplyScalar(rad));
+
+        let distanseV = (new THREE.Vector3()).copy(this._eye).sub(this._target);
+
+        let distanse = distanseV.length()
+
+        let distanseNormal = distanseV.normalize();
+
+        let value = (new THREE.Vector3()).copy(distanseNormal).dot(targetToEye.normalize());
+
+        if (value <= 0 || distanse < scalePer) {
+            this._eye = (new THREE.Vector3()).copy(this._target).add(normal.multiplyScalar(100 * 10000));
+        }
+
         this.applyCameraMatrix();
 
         this.view.notifyChange(this._camera3D);
@@ -241,6 +313,36 @@ class OrbitControls extends THREE.EventDispatcher {
     onContextMenu(event) {
         // disable context menu
         event.preventDefault();
+    }
+
+    /**
+     * ターゲットにカメラを注視する
+     * @param {*} event 
+     */
+    fitCamera(event) {
+        let minPoint = event.min;
+        
+        let centerPoint = event.getCenter();
+
+        let radiusVector = (new THREE.Vector3()).copy(minPoint).sub(centerPoint);
+        let radius = radiusVector.length();
+
+        let centerToEyeLen = radius / Math.sin(this._camera3D.fov/2 * Math.PI / 180);
+
+        this._eye = (new THREE.Vector3(
+            centerPoint.x + centerToEyeLen,
+            centerPoint.y,
+            centerPoint.z,
+        ));
+
+        this._target = centerPoint;
+
+        this._camera3D.near = 1;
+        this._camera3D.far = centerToEyeLen + radius * 2;
+    
+        this.applyCameraMatrix();
+
+        this.view.notifyChange(this._camera3D);
     }
 }
 

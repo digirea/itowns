@@ -35,6 +35,10 @@ function loadObjLayer(view, callback) {
     objLoader.load('teapot.obj', function (object) {
         var material = new THREE.MeshBasicMaterial({color: 0x6699FF})
         for (var i = 0; i < object.children.length; ++i) {
+            object.children[i].rotation.z = 90 * Math.PI/180;
+            object.children[i].rotation.y = 90 * Math.PI/180;
+            object.children[i].updateMatrixWorld();
+
             object.children[i].geometry.scale(100000, 100000, 100000);
             object.children[i].material = material;
         }
@@ -71,6 +75,25 @@ window.onload = function () {
 
     // objを出す
     loadObjLayer(view);
+
+    // meshのバウンディングボックスを生成してコントローラに送る
+    var button = document.createElement('button');
+    button.style.position = 'fixed'
+    button.style.left ='10px'
+    button.style.top ='10px'
+    button.style.zIndex = 1;
+    button.textContent = 'Fit Camera'
+    button.onclick = function () {
+        var obj = view.scene.children[view.scene.children.length - 1];
+        for (var i = 0; i < obj.children.length; ++i) {
+            var child = obj.children[i];
+            if (child.type === 'Mesh') {
+                child.geometry.computeBoundingBox();
+                controls.fitCamera((new itowns.THREE.Box3()).copy( child.geometry.boundingBox ).applyMatrix4( child.matrixWorld ));
+            }
+        }
+    }
+    document.body.appendChild(button);
 
     //injectChOWDER(view, viewerDiv);
 };
