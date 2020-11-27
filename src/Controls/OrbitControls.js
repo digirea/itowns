@@ -270,28 +270,35 @@ class OrbitControls extends THREE.EventDispatcher {
         } else if (event.detail !== undefined) {
             delta = -event.detail;
         }
+        console.log(delta);
 
         // カメラからターゲットのベクトルから距離を得る
         const targetToEye = (new THREE.Vector3()).copy(this._eye).sub(this._target);
         const targetToEyeLen = targetToEye.length();
         const normal1 = (new THREE.Vector3()).copy(targetToEye).normalize();
-        // console.log('Len:' + targetToEyeLen);
-        // console.log(normal1);
+        console.log('Len:' + targetToEyeLen);
+        console.log(normal1);
 
         if (this._lookedTarget) {
-            // console.log('centerToEyeLen:' + this.centerToEyeLen);
+            console.log('centerToEyeLen:' + this.centerToEyeLen);
             limitLen = this.centerToEyeLen;
         } else if (limitLen === -1) {
             limitLen = targetToEyeLen / 20;
         }
-        // console.log('limitLen:' + limitLen);
+        console.log('limitLen:' + limitLen);
 
-        const scalePer = targetToEyeLen - limitLen;
-        // console.log('per:' + scalePer);
+        this.scale = targetToEyeLen - limitLen;
+        console.log('scale:' + this.scale);
+
+        if (this._lookedTarget === true || this.scale <= 0) {
+            this.scale = 1;
+            this._lookedTarget = false;
+        }
 
         let rad = targetToEyeLen;
-        rad -= delta * scalePer / 1000;
-        // rad -= delta * 10000;
+        rad -= delta * this.scale / 1000;
+
+        console.log('rad:' + rad);
 
         // カメラをradの値に基づき移動
         this._eye = (new THREE.Vector3()).copy(this._target).add(normal1.multiplyScalar(rad));
@@ -299,16 +306,26 @@ class OrbitControls extends THREE.EventDispatcher {
         // 移動したあとのカメラからターゲットのベクトルから距離を得る
         const movedTargetToEye = (new THREE.Vector3()).copy(this._eye).sub(this._target);
         const normal2 = (new THREE.Vector3()).copy(movedTargetToEye).normalize();
-        // console.log('movedLen:' + movedTargetToEye.length());
+        console.log('movedLen:' + movedTargetToEye.length());
         console.log(normal2);
 
         const value = normal1.dot(normal2);
-        // console.log('value:' + value);
+        console.log('value:' + value);
 
 
         if (value <= 0 || movedTargetToEye.length() <= limitLen) {
-            this._eye = (new THREE.Vector3()).copy(this._target).add(normal1.multiplyScalar(-rad));
-            // console.log('test');
+            if (delta > 0 && this.limitPosition !== undefined) {
+                this.scale = 0;
+                console.log('limit');
+                this._eye = this.limitPosition;
+            }else{
+                this._eye = (new THREE.Vector3()).copy(this._target).add(normal1.multiplyScalar(-rad));
+            }
+            
+            // else {
+            //     this._eye = (new THREE.Vector3()).copy(this._target).add(normal1.multiplyScalar(-rad));
+            //     console.log('test');
+            // }
         }
 
         this.limitLen = limitLen;
