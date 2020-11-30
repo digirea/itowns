@@ -95,5 +95,42 @@ window.onload = function () {
     }
     document.body.appendChild(button);
 
+    let para = document.createElement('div');
+    para.style.position = 'fixed'
+    para.style.left ='10px'
+    para.style.top ='35px'
+    para.id = "para";
+    this.document.body.appendChild(para);
+
+    let xp = document.createElement('input');
+   
+    xp.style.position = 'fixed'
+    xp.style.left ='10px'
+    xp.style.top ='35px'
+    xp.style.color = "red"
+    xp.id = "positionx";
+
+    para.appendChild(xp);
+
+    let yp = document.createElement('input');
+   
+    yp.style.position = 'fixed'
+    yp.style.left ='10px'
+    yp.style.top ='60px'
+    yp.style.color = "red"
+    yp.id = "positiony";
+
+    para.appendChild(yp);
+
+    let zp = document.createElement('input');
+   
+    zp.style.position = 'fixed'
+    zp.style.left ='10px'
+    zp.style.top ='85px'
+    zp.style.color = "red"
+    zp.id = "positionz";
+
+    para.appendChild(zp);
+    
     //injectChOWDER(view, viewerDiv);
 };
