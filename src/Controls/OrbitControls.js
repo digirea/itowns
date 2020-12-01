@@ -162,62 +162,29 @@ class OrbitControls extends THREE.EventDispatcher {
     rotate(coords) {
         const gfx = this.view.mainLoop.gfxEngine;
 
-        const rotZ = -2 * Math.PI * (coords.x - this._posX) / gfx.width * 0.25;
-        const rotY = -2 * Math.PI * (coords.y - this._posY) / gfx.height * 0.25;
+        const rotZ = -2 * Math.PI * (coords.x - this._posX) / gfx.width * 0.5;
+        const rotY = -2 * Math.PI * (coords.y - this._posY) / gfx.height * 0.5;
 
-        // let cameraPositionVector = new THREE.Vector3(this._eye.x, this._eye.y, this._eye.z);
-        // let cameraUpVector = new THREE.Vector3(0, 0, -1);
-
-        // let u = (new THREE.Vector3()).copy(cameraUpVector);
-        // let w = (new THREE.Vector3()).copy(cameraPositionVector).cross(u);
-
-        // let wn = w.normalize();
-
-        // const quatZ = new THREE.Quaternion();
-        // const quatY = new THREE.Quaternion();
-
-        // quatZ.setFromAxisAngle(u, rotZ);
-        // quatY.setFromAxisAngle(wn, rotY);
-        // this._eye.applyQuaternion(quatY.multiply(quatZ));
-
-        // console.log(this._eye);
-
+        // カメラからターゲットまでのベクトル(視線ベクトル)
         const cameraVector = (new THREE.Vector3()).copy(this._eye).sub(this._target);
-        const axis = (new THREE.Vector3()).copy(this._up);
-
-        const axisY = (new THREE.Vector3().copy(cameraVector)).cross(axis);
+        const cameraToTarget = (new THREE.Vector3()).copy(cameraVector).normalize();
+        // Z軸(上)
+        const axisZ = new THREE.Vector3(0, 0, 1);
+        // 上記2つのベクトルの外積を取り、視線ベクトルと直交するベクトルを得る
+        const cross = cameraToTarget.cross(axisZ);
 
         const quatZ = new THREE.Quaternion();
         const quatY = new THREE.Quaternion();
-        // TODO axis is wrong
-        quatZ.setFromAxisAngle(axis, rotZ);
-        quatY.setFromAxisAngle(axisY.normalize(), rotY);
+
+        // Z軸をもとに水平方向へ、外積で得たベクトルで垂直方向へ回転するクォータニオンを適用
+        quatZ.setFromAxisAngle(axisZ, rotZ);
+        quatY.setFromAxisAngle(cross, rotY);
         this._eye.applyQuaternion(quatY.multiply(quatZ));
 
-        // let cameraVector = (new THREE.Vector3()).copy(this._eye).sub(this._target);
-        // let axis = new THREE.Vector3(0, 0, 1);
+        this.applyCameraMatrix();
 
-        // console.log(cameraVector.normalize());
-
-        // let angle = axis.dot(cameraVector.normalize());
-        const angle = axis.angleTo(cameraVector.normalize());
-
-        if (angle <= 89.0 * Math.PI / 180.0 && angle >= -89.0 * Math.PI / 180.0) {
-
-            this.applyCameraMatrix();
-
-            this._posX = coords.x;
-            this._posY = coords.y;
-        } else {
-            // console.log('test');
-        }
-
-        // this.applyCameraMatrix();
-
-        // this._posX = coords.x;
-        // this._posY = coords.y;
-
-        // console.log(this._eye);
+        this._posX = coords.x;
+        this._posY = coords.y;
     }
 
     pan(coords) {
