@@ -132,7 +132,7 @@ class OrbitControls extends THREE.EventDispatcher {
         // document.getElementById('positionx').textContent = this._eye.x;
 
         this._camera3D.matrixAutoUpdate = true;
-        console.log(this._eye);
+        // console.log(this._eye);
     }
 
     onMouseDown(event) {
@@ -247,14 +247,14 @@ class OrbitControls extends THREE.EventDispatcher {
             this.scale = 1;
             this._lookedTarget = false;
         }
-
+        
         let rad = targetToEyeLen;
         rad -= delta * this.scale / 1000;
 
         // カメラをradの値に基づき移動
         this._eye = (new THREE.Vector3()).copy(this._target).add(normal1.multiplyScalar(rad));
 
-        // 移動したあとのカメラからターゲットのベクトルから距離を得る
+        // 移動後のカメラからターゲットへのベクトルから距離を得る
         const movedTargetToEye = (new THREE.Vector3()).copy(this._eye).sub(this._target);
         const normal2 = (new THREE.Vector3()).copy(movedTargetToEye).normalize();
 
@@ -264,8 +264,6 @@ class OrbitControls extends THREE.EventDispatcher {
             if (delta > 0 && this.limitPosition !== undefined) {
                 this.scale = 0;
                 this._eye = this.limitPosition;
-            } else {
-                this._eye = (new THREE.Vector3()).copy(this._target).add(normal1.multiplyScalar(-rad));
             }
         }
 
