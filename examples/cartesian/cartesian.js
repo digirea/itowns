@@ -99,6 +99,7 @@ window.onload = function () {
     para.style.position = 'fixed'
     para.style.left ='10px'
     para.style.top ='35px'
+    para.style.zIndex = 1;
     para.id = "para";
     this.document.body.appendChild(para);
 
@@ -108,6 +109,7 @@ window.onload = function () {
     xp.style.left ='10px'
     xp.style.top ='35px'
     xp.style.color = "red"
+    xp.style.zIndex = 1;
     xp.id = "positionx";
 
     para.appendChild(xp);
@@ -118,6 +120,7 @@ window.onload = function () {
     yp.style.left ='10px'
     yp.style.top ='60px'
     yp.style.color = "red"
+    yp.style.zIndex = 1;
     yp.id = "positiony";
 
     para.appendChild(yp);
@@ -128,9 +131,22 @@ window.onload = function () {
     zp.style.left ='10px'
     zp.style.top ='85px'
     zp.style.color = "red"
+    zp.style.zIndex = 1;
     zp.id = "positionz";
 
     para.appendChild(zp);
+
+    var resetButton = document.createElement('button');
+    resetButton.style.position = 'fixed'
+    resetButton.style.left ='10px'
+    resetButton.style.top ='110px'
+    resetButton.style.zIndex = 1;
+    resetButton.textContent = 'Reset Camera'
+    resetButton.onclick = function () {
+        controls.resetCamera();
+    }
+
+    document.body.appendChild(resetButton);
     
     //injectChOWDER(view, viewerDiv);
 };
