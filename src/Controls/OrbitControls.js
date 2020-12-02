@@ -46,10 +46,11 @@ class OrbitControls extends THREE.EventDispatcher {
         this._posX = 0;
         this._posY = 0;
 
-        this._cameraFirstPosition = this._camera3D.position;
+        this._cameraFirstPosition = new THREE.Vector3(0, 0, 0).copy(this._camera3D.position);
+        console.log(this._cameraFirstPosition);
 
         this._eye = new THREE.Vector3(0, 0, 0);
-        this._eye.copy(this._cameraFirstPosition);
+        this._eye.copy(this._camera3D.position);
         this._target = new THREE.Vector3(0, 0, 0);
         this._up = new THREE.Vector3(0, 0, 1); // zup for itowns gloveview
 
@@ -131,10 +132,8 @@ class OrbitControls extends THREE.EventDispatcher {
         this._camera3D.aspect = cameraParams.aspect;
         */
 
-        // document.getElementById('positionx').textContent = this._eye.x;
-
         this._camera3D.matrixAutoUpdate = true;
-        console.log(this._eye);
+        // console.log(this._eye);
     }
 
     onMouseDown(event) {
@@ -167,19 +166,6 @@ class OrbitControls extends THREE.EventDispatcher {
         const rotZ = -2 * Math.PI * (coords.x - this._posX) / gfx.width * 0.25;
         const rotY = -2 * Math.PI * (coords.y - this._posY) / gfx.height * 0.25;
 
-        // const rotateYMatrix = new THREE.Matrix4();
-        // const rotateZMatrix = new THREE.Matrix4();
-        // const rotateXMatrix = new THREE.Matrix4();
-        // const cameraVector = (new THREE.Vector3()).copy(this._eye).sub(this._target);
-        // const cameraVector4 = new THREE.Vector4(cameraVector.x, cameraVector.y, cameraVector.z, 1);
-        // let rotateMatrix = new THREE.Matrix4();
-        
-        // rotateZMatrix.makeRotationZ(rotZ);
-        // rotateYMatrix.makeRotationY(rotY);
-        // rotateXMatrix.makeRotationY(rotY);
-
-        // const distCameraPosition = cameraVector4.applyMatrix4(rotateMatrix);
-
         const cameraVector = (new THREE.Vector3()).copy(this._eye).sub(this._target);
         const cameraToTarget = (new THREE.Vector3()).copy(cameraVector).normalize();
         const axisZ = new THREE.Vector3(0, 0, 1);
@@ -196,60 +182,6 @@ class OrbitControls extends THREE.EventDispatcher {
 
         this._posX = coords.x;
         this._posY = coords.y;
-
-        // let cameraPositionVector = new THREE.Vector3(this._eye.x, this._eye.y, this._eye.z);
-        // let cameraUpVector = new THREE.Vector3(0, 0, -1);
-
-        // let u = (new THREE.Vector3()).copy(cameraUpVector);
-        // let w = (new THREE.Vector3()).copy(cameraPositionVector).cross(u);
-
-        // let wn = w.normalize();
-
-        // const quatZ = new THREE.Quaternion();
-        // const quatY = new THREE.Quaternion();
-
-        // quatZ.setFromAxisAngle(u, rotZ);
-        // quatY.setFromAxisAngle(wn, rotY);
-        // this._eye.applyQuaternion(quatY.multiply(quatZ));
-
-        // console.log(this._eye);
-
-        // const cameraVector = (new THREE.Vector3()).copy(this._eye).sub(this._target);
-        // const axis = (new THREE.Vector3()).copy(this._up);
-
-        // const axisY = (new THREE.Vector3().copy(cameraVector)).cross(axis);
-
-        // const quatZ = new THREE.Quaternion();
-        // const quatY = new THREE.Quaternion();
-        // // TODO axis is wrong
-        // quatZ.setFromAxisAngle(axis, rotZ);
-        // quatY.setFromAxisAngle(axisY.normalize(), rotY);
-        // this._eye.applyQuaternion(quatY.multiply(quatZ));
-
-        // let cameraVector = (new THREE.Vector3()).copy(this._eye).sub(this._target);
-        // let axis = new THREE.Vector3(0, 0, 1);
-
-        // console.log(cameraVector.normalize());
-
-        // let angle = axis.dot(cameraVector.normalize());
-        // const angle = axis.angleTo(cameraVector.normalize());
-
-        // if (angle <= 89.0 * Math.PI / 180.0 && angle >= -89.0 * Math.PI / 180.0) {
-
-        //     this.applyCameraMatrix();
-
-        //     this._posX = coords.x;
-        //     this._posY = coords.y;
-        // } else {
-        //     // console.log('test');
-        // }
-
-        // this.applyCameraMatrix();
-
-        // this._posX = coords.x;
-        // this._posY = coords.y;
-
-        // console.log(this._eye);
     }
 
     pan(coords) {
@@ -336,6 +268,10 @@ class OrbitControls extends THREE.EventDispatcher {
 
         this.limitLen = limitLen;
 
+        this.applyCameraMatrix();
+
+        this.view.notifyChange(this._camera3D);
+
         //     let scalePer = this.radius;
         //     if(scalePer == undefined){
         //         scalePer = 10000;
@@ -366,10 +302,6 @@ class OrbitControls extends THREE.EventDispatcher {
         //     if (value <= 0 || distanse <= len) {
         //         this._eye = (new THREE.Vector3()).copy(this._target).add(normal.multiplyScalar(scalePer));
         //     }
-
-        this.applyCameraMatrix();
-
-        this.view.notifyChange(this._camera3D);
     }
 
     onKeyDown(e) {
@@ -428,12 +360,15 @@ class OrbitControls extends THREE.EventDispatcher {
         this.view.notifyChange(this._camera3D);
     }
 
-    resetCamera(){
-        console.log('reset');
+
+    /**
+     * カメラをリセットする
+     */
+    resetCamera() {
         this._eye = this._cameraFirstPosition;
         this._target = new THREE.Vector3(0, 0, 0);
-
         this.applyCameraMatrix();
+        this.view.notifyChange(this._camera3D);
     }
 }
 
