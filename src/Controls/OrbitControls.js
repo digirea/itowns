@@ -46,8 +46,10 @@ class OrbitControls extends THREE.EventDispatcher {
         this._posX = 0;
         this._posY = 0;
 
+        this._cameraFirstPosition = this._camera3D.position;
+
         this._eye = new THREE.Vector3(0, 0, 0);
-        this._eye.copy(this._camera3D.position);
+        this._eye.copy(this._cameraFirstPosition);
         this._target = new THREE.Vector3(0, 0, 0);
         this._up = new THREE.Vector3(0, 0, 1); // zup for itowns gloveview
 
@@ -424,6 +426,14 @@ class OrbitControls extends THREE.EventDispatcher {
         this.applyCameraMatrix();
 
         this.view.notifyChange(this._camera3D);
+    }
+
+    resetCamera(){
+        console.log('reset');
+        this._eye = this._cameraFirstPosition;
+        this._target = new THREE.Vector3(0, 0, 0);
+
+        this.applyCameraMatrix();
     }
 }
 
