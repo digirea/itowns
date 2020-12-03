@@ -124,7 +124,6 @@ class OrbitControls extends THREE.EventDispatcher {
         this._camera3D.quaternion.copy(q);
         this._camera3D.scale.copy(s);
 
-
         /*
         this._camera3D.zoom = cameraParams.zoom;
         this._camera3D.filmOffset = cameraParams.filmOffset;
@@ -171,6 +170,10 @@ class OrbitControls extends THREE.EventDispatcher {
         const axisZ = new THREE.Vector3(0, 0, 1);
         const cross = cameraToTarget.cross(axisZ);
 
+        const eyeVector = (new THREE.Vector3()).copy(this._target).sub(this._eye);
+        const theta = axisZ.angleTo(eyeVector.normalize());
+        console.log(theta);
+
         const quatZ = new THREE.Quaternion();
         const quatY = new THREE.Quaternion();
 
@@ -178,6 +181,11 @@ class OrbitControls extends THREE.EventDispatcher {
         quatY.setFromAxisAngle(cross, rotY);
         this._eye.applyQuaternion(quatY.multiply(quatZ));
 
+        if(0.1 > theta || theta > 3.14){
+            const inverse = quatY.inverse();
+            this._eye.applyQuaternion(inverse);
+            console.log('inverse');
+        }
         this.applyCameraMatrix();
 
         this._posX = coords.x;
@@ -365,6 +373,29 @@ class OrbitControls extends THREE.EventDispatcher {
      * カメラをリセットする
      */
     resetCamera() {
+        this._eye = new THREE.Vector3().copy(this._cameraFirstPosition);
+        this._target = new THREE.Vector3(0, 0, 0);
+        this._up = new THREE.Vector3(0, 0, 1);
+
+        this.applyCameraMatrix();
+        this.view.notifyChange(this._camera3D);
+        console.log(this._eye);
+    }
+
+    /**
+     * カメラの向きをそのまま一定距離離す
+     */
+    trackBack() {
+        this._eye = new THREE.Vector3().copy(this._cameraFirstPosition);
+        this._target = new THREE.Vector3(0, 0, 0);
+        this.applyCameraMatrix();
+        this.view.notifyChange(this._camera3D);
+    }
+
+    /**
+     * カメラの向きをそのまま最短距離まで近づく
+     */
+    trackUP() {
         this._eye = this._cameraFirstPosition;
         this._target = new THREE.Vector3(0, 0, 0);
         this.applyCameraMatrix();
