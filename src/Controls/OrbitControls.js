@@ -54,6 +54,7 @@ class OrbitControls extends THREE.EventDispatcher {
         this._target = new THREE.Vector3(0, 0, 0);
         this._up = new THREE.Vector3(0, 0, 1); // zup for itowns gloveview
 
+        // axis
         this.axisZ = new THREE.Vector3(0, 0, 1);
         this.axisY = new THREE.Vector3(0, 1, 0);
         this.axisX = new THREE.Vector3(1, 0, 0);
@@ -171,7 +172,7 @@ class OrbitControls extends THREE.EventDispatcher {
 
         const cameraVector = (new THREE.Vector3()).copy(this._eye).sub(this._target);
         const cameraToTarget = (new THREE.Vector3()).copy(cameraVector).normalize();
-        
+
         const cross = cameraToTarget.cross(this.axisZ);
 
         const quatZ = new THREE.Quaternion();
@@ -186,13 +187,11 @@ class OrbitControls extends THREE.EventDispatcher {
         const eyeVector = (new THREE.Vector3()).copy(this._target).sub(this._eye);
         const theta = (eyeVector.normalize()).angleTo(this.axisZ);
 
-        if(0.1 < theta && theta < 3.1){
+        if (theta > 0.1 && theta < 3.1) {
             this.applyCameraMatrix();
-
             this._posX = coords.x;
             this._posY = coords.y;
-            
-        }else{
+        } else {
             this._eye = eyeVectorTemp;
         }
     }
@@ -284,37 +283,6 @@ class OrbitControls extends THREE.EventDispatcher {
         this.applyCameraMatrix();
 
         this.view.notifyChange(this._camera3D);
-
-        //     let scalePer = this.radius;
-        //     if(scalePer == undefined){
-        //         scalePer = 10000;
-        //     }
-
-        //     if (event.wheelDelta !== undefined) {
-        //         delta = event.wheelDelta;
-        //         // Firefox
-        //     } else if (event.detail !== undefined) {
-        //         delta = -event.detail;
-        //     }
-
-        //     const targetToEye = (new THREE.Vector3()).copy(this._eye).sub(this._target);
-        //     let rad = targetToEye.length();
-
-        //     rad -= delta * scalePer;
-
-        //     let normal = targetToEye.normalize();
-
-        //     this._eye = (new THREE.Vector3()).copy(this._target).add(normal.multiplyScalar(rad));
-
-        //     let distanseV = (new THREE.Vector3()).copy(this._eye).sub(this._target);
-
-        //     let distanse = distanseV.length();
-
-        //     let distanseNormal = distanseV.normalize();
-
-        //     if (value <= 0 || distanse <= len) {
-        //         this._eye = (new THREE.Vector3()).copy(this._target).add(normal.multiplyScalar(scalePer));
-        //     }
     }
 
     onKeyDown(e) {
