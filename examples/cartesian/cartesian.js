@@ -148,29 +148,29 @@ window.onload = function () {
 
     document.body.appendChild(resetButton);
 
-    var trackBackButton = document.createElement('button');
-    trackBackButton.style.position = 'fixed'
-    trackBackButton.style.left ='10px'
-    trackBackButton.style.top ='135px'
-    trackBackButton.style.zIndex = 1;
-    trackBackButton.textContent = 'Track Back'
-    trackBackButton.onclick = function () {
-        controls.trackBack();
-    }
+    // var trackBackButton = document.createElement('button');
+    // trackBackButton.style.position = 'fixed'
+    // trackBackButton.style.left ='10px'
+    // trackBackButton.style.top ='135px'
+    // trackBackButton.style.zIndex = 1;
+    // trackBackButton.textContent = 'Track Back'
+    // trackBackButton.onclick = function () {
+    //     controls.trackBack();
+    // }
 
-    document.body.appendChild(trackBackButton);
+    // document.body.appendChild(trackBackButton);
 
-    var trackUpButton = document.createElement('button');
-    trackUpButton.style.position = 'fixed'
-    trackUpButton.style.left ='10px'
-    trackUpButton.style.top ='160px'
-    trackUpButton.style.zIndex = 1;
-    trackUpButton.textContent = 'Track Up'
-    trackUpButton.onclick = function () {
-        controls.trackUp();
-    }
+    // var trackUpButton = document.createElement('button');
+    // trackUpButton.style.position = 'fixed'
+    // trackUpButton.style.left ='10px'
+    // trackUpButton.style.top ='160px'
+    // trackUpButton.style.zIndex = 1;
+    // trackUpButton.textContent = 'Track Up'
+    // trackUpButton.onclick = function () {
+    //     controls.trackUp();
+    // }
 
-    document.body.appendChild(trackUpButton);
+    // document.body.appendChild(trackUpButton);
     
     //injectChOWDER(view, viewerDiv);
 };

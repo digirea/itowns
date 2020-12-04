@@ -54,6 +54,10 @@ class OrbitControls extends THREE.EventDispatcher {
         this._target = new THREE.Vector3(0, 0, 0);
         this._up = new THREE.Vector3(0, 0, 1); // zup for itowns gloveview
 
+        this.axisZ = new THREE.Vector3(0, 0, 1);
+        this.axisY = new THREE.Vector3(0, 1, 0);
+        this.axisX = new THREE.Vector3(1, 0, 0);
+
         this._isLeftDown = false;
         this._isRightDown = false;
 
@@ -167,29 +171,30 @@ class OrbitControls extends THREE.EventDispatcher {
 
         const cameraVector = (new THREE.Vector3()).copy(this._eye).sub(this._target);
         const cameraToTarget = (new THREE.Vector3()).copy(cameraVector).normalize();
-        const axisZ = new THREE.Vector3(0, 0, 1);
-        const cross = cameraToTarget.cross(axisZ);
-
-        const eyeVector = (new THREE.Vector3()).copy(this._target).sub(this._eye);
-        const theta = axisZ.angleTo(eyeVector.normalize());
-        console.log(theta);
+        
+        const cross = cameraToTarget.cross(this.axisZ);
 
         const quatZ = new THREE.Quaternion();
         const quatY = new THREE.Quaternion();
 
-        quatZ.setFromAxisAngle(axisZ, rotZ);
+        const eyeVectorTemp = (new THREE.Vector3()).copy(this._eye);
+
+        quatZ.setFromAxisAngle(this.axisZ, rotZ);
         quatY.setFromAxisAngle(cross, rotY);
         this._eye.applyQuaternion(quatY.multiply(quatZ));
 
-        if(0.1 > theta || theta > 3.14){
-            const inverse = quatY.inverse();
-            this._eye.applyQuaternion(inverse);
-            console.log('inverse');
-        }
-        this.applyCameraMatrix();
+        const eyeVector = (new THREE.Vector3()).copy(this._target).sub(this._eye);
+        const theta = (eyeVector.normalize()).angleTo(this.axisZ);
 
-        this._posX = coords.x;
-        this._posY = coords.y;
+        if(0.1 < theta && theta < 3.1){
+            this.applyCameraMatrix();
+
+            this._posX = coords.x;
+            this._posY = coords.y;
+            
+        }else{
+            this._eye = eyeVectorTemp;
+        }
     }
 
     pan(coords) {
@@ -368,7 +373,6 @@ class OrbitControls extends THREE.EventDispatcher {
         this.view.notifyChange(this._camera3D);
     }
 
-
     /**
      * カメラをリセットする
      */
@@ -380,26 +384,6 @@ class OrbitControls extends THREE.EventDispatcher {
         this.applyCameraMatrix();
         this.view.notifyChange(this._camera3D);
         console.log(this._eye);
-    }
-
-    /**
-     * カメラの向きをそのまま一定距離離す
-     */
-    trackBack() {
-        this._eye = new THREE.Vector3().copy(this._cameraFirstPosition);
-        this._target = new THREE.Vector3(0, 0, 0);
-        this.applyCameraMatrix();
-        this.view.notifyChange(this._camera3D);
-    }
-
-    /**
-     * カメラの向きをそのまま最短距離まで近づく
-     */
-    trackUP() {
-        this._eye = this._cameraFirstPosition;
-        this._target = new THREE.Vector3(0, 0, 0);
-        this.applyCameraMatrix();
-        this.view.notifyChange(this._camera3D);
     }
 }
 
