@@ -167,13 +167,13 @@ class OrbitControls extends THREE.EventDispatcher {
     rotate(coords) {
         const gfx = this.view.mainLoop.gfxEngine;
 
-        const rotZ = -2 * Math.PI * (coords.x - this._posX) / gfx.width * 0.25;
-        const rotY = -2 * Math.PI * (coords.y - this._posY) / gfx.height * 0.25;
+        const rotZ = -2 * Math.PI * (coords.x - this._posX) / gfx.width * 0.5;
+        const rotY = -2 * Math.PI * (coords.y - this._posY) / gfx.height * 0.5;
 
         const cameraVector = (new THREE.Vector3()).copy(this._eye).sub(this._target);
         const cameraToTarget = (new THREE.Vector3()).copy(cameraVector).normalize();
 
-        const cross = cameraToTarget.cross(this.axisZ);
+        const cross = cameraToTarget.cross(this.axisZ).normalize();
 
         const quatZ = new THREE.Quaternion();
         const quatY = new THREE.Quaternion();
@@ -181,19 +181,31 @@ class OrbitControls extends THREE.EventDispatcher {
         const eyeVectorTemp = (new THREE.Vector3()).copy(this._eye);
 
         quatZ.setFromAxisAngle(this.axisZ, rotZ);
-        quatY.setFromAxisAngle(cross, rotY);
+        quatY.setFromAxisAngle(cross, -rotY);
         this._eye.applyQuaternion(quatY.multiply(quatZ));
 
         const eyeVector = (new THREE.Vector3()).copy(this._target).sub(this._eye);
         const theta = (eyeVector.normalize()).angleTo(this.axisZ);
 
-        if (theta > 0.1 && theta < 3.1) {
+        if (theta > 0.1 && theta < Math.PI - 0.1) {
             this.applyCameraMatrix();
-            this._posX = coords.x;
-            this._posY = coords.y;
         } else {
             this._eye = eyeVectorTemp;
         }
+
+        this._posX = coords.x;
+        this._posY = coords.y;
+
+        // console.log(this._eye);
+
+        const movedTargetToEye = (new THREE.Vector3()).copy(this._eye).sub(this._target);
+        // console.log(movedTargetToEye.length());
+
+        if (movedTargetToEye.length() < this.limitLen) {
+            this.limitLen = movedTargetToEye.length();
+        }
+
+        // this.limitLen = movedTargetToEye.length();
     }
 
     pan(coords) {
@@ -244,7 +256,8 @@ class OrbitControls extends THREE.EventDispatcher {
         const targetToEyeLen = targetToEye.length();
         const normal1 = (new THREE.Vector3()).copy(targetToEye).normalize();
 
-        if (this._lookedTarget) {
+        if (this._lookedTarget == true && this.limitLen == undefined) {
+            // console.log('test')
             limitLen = this.centerToEyeLen;
         } else if (limitLen === -1) {
             limitLen = targetToEyeLen / 20;
@@ -283,6 +296,9 @@ class OrbitControls extends THREE.EventDispatcher {
         this.applyCameraMatrix();
 
         this.view.notifyChange(this._camera3D);
+
+        console.log(this.limitLen);
+        console.log(this._eye);
     }
 
     onKeyDown(e) {
@@ -313,6 +329,7 @@ class OrbitControls extends THREE.EventDispatcher {
     fitCamera(event) {
         this._lookedTarget = true;
 
+
         const minPoint = event.min;
 
         const centerPoint = event.getCenter();
@@ -323,6 +340,7 @@ class OrbitControls extends THREE.EventDispatcher {
         const centerToEyeLen = radius / Math.sin(this._camera3D.fov / 2 * Math.PI / 180);
 
         this.centerToEyeLen = centerToEyeLen;
+        this.limitLen = this.centerToEyeLen;
 
         this._eye = (new THREE.Vector3(
             centerPoint.x + centerToEyeLen,
