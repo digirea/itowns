@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import AnimationPlayer from 'Core/AnimationPlayer';
 import Coordinates from 'Core/Geographic/Coordinates';
-import { ellipsoidSizes } from 'Core/Math/Ellipsoid';
 import CameraUtils from 'Utils/CameraUtils';
 import StateControl from 'Controls/StateControl';
 
@@ -30,6 +29,8 @@ const dollyDelta = new THREE.Vector2();
 
 // Globe move
 const moveAroundGlobe = new THREE.Quaternion();
+const deltaRotation = new THREE.Quaternion();
+const outOfGlobeAxis = new THREE.Vector3();
 const cameraTarget = new THREE.Object3D();
 cameraTarget.matrixWorldInverse = new THREE.Matrix4();
 
@@ -181,6 +182,11 @@ class EarthControls extends THREE.EventDispatcher {
         this.states.PAN.enable = false;
         // we use rightbutton for dolly
         this.states.DOLLY.mouseButton = THREE.MOUSE.RIGHT;
+        // we use middlebutton for orbit
+        this.states.ORBIT_BY_MIDDLEBUTTON = {
+            mouseButton: THREE.MOUSE.MIDDLE,
+            enable: true,
+        };
 
         // Set to false to disable this control
         this.enabled = true;
@@ -224,7 +230,7 @@ class EarthControls extends THREE.EventDispatcher {
         this.enableKeys = true;
 
         // Enable Damping
-        this.enableDamping = true;
+        this.enableDamping = false;
         this.startEvent = {
             type: 'start',
         };
@@ -407,6 +413,7 @@ class EarthControls extends THREE.EventDispatcher {
                 }
             }
         }
+
         switch (this.state) {
             // MOVE_GLOBE Rotate globe with mouse
             case this.states.MOVE_GLOBE:
@@ -418,7 +425,9 @@ class EarthControls extends THREE.EventDispatcher {
                     cameraTarget.translateY(translate);
                     this.camera.position.setLength(this.camera.position.length() + translate);
                 }
-                lastNormalizedIntersection.copy(normalizedIntersection).applyQuaternion(moveAroundGlobe);
+                if (lastNormalizedIntersection.lengthSq() > EPS) {
+                    lastNormalizedIntersection.copy(normalizedIntersection).applyQuaternion(moveAroundGlobe);
+                }
                 cameraTarget.position.applyQuaternion(moveAroundGlobe);
                 this.camera.position.applyQuaternion(moveAroundGlobe);
                 break;
@@ -524,7 +533,9 @@ class EarthControls extends THREE.EventDispatcher {
             lastQuaternion.copy(this.camera.quaternion);
         }
         // Launch animationdamping if mouse stops these movements
-        if (this.enableDamping && this.state === this.states.ORBIT && this.player.isStopped() && (sphericalDelta.theta > EPS || sphericalDelta.phi > EPS)) {
+        const isORBIT = (this.state === this.states.ORBIT || this.states === this.states.ORBIT_BY_MIDDLEBUTTON);
+        const isSphericalMoving = (sphericalDelta.theta > EPS || sphericalDelta.phi > EPS);
+        if (this.enableDamping && isORBIT && this.player.isStopped() && isSphericalMoving) {
             this.player.playLater(durationDampingOrbital, 2);
         }
     }
@@ -540,10 +551,10 @@ class EarthControls extends THREE.EventDispatcher {
 
         switch (this.state) {
             case this.states.ORBIT:
+            case this.states.ORBIT_BY_MIDDLEBUTTON:
             case this.states.PANORAMIC: {
                 rotateEnd.copy(coords);
                 rotateDelta.subVectors(rotateEnd, rotateStart);
-
                 const gfx = this.view.mainLoop.gfxEngine;
                 this.rotateLeft(2 * Math.PI * rotateDelta.x / gfx.width * this.rotateSpeed);
                 // rotating up and down along whole screen attempts to go 360, but limited to 180
@@ -572,16 +583,34 @@ class EarthControls extends THREE.EventDispatcher {
                 panStart.copy(panEnd);
                 break;
             case this.states.MOVE_GLOBE: {
+                rotateEnd.copy(coords);
+                rotateDelta.subVectors(rotateEnd, rotateStart);
+
                 const normalized = this.view.viewToNormalizedCoords(coords);
                 raycaster.setFromCamera(normalized, this.camera);
-                // If there's intersection then move globe else we stop the move
+                // If there's intersection then move globe keeping intersection point
+                // else we just rotate globe
                 if (raycaster.ray.intersectSphere(pickSphere, intersection)) {
                     normalizedIntersection.copy(intersection).normalize();
+                    if (lastNormalizedIntersection.lengthSq() < EPS) {
+                        lastNormalizedIntersection.copy(normalizedIntersection);
+                    }
                     moveAroundGlobe.setFromUnitVectors(normalizedIntersection, lastNormalizedIntersection);
                     lastTimeMouseMove = Date.now();
                 } else {
-                    this.onMouseUp();
+                    lastNormalizedIntersection.set(0, 0, 0);
+                    const gfx = this.view.mainLoop.gfxEngine;
+                    const yrot = -Math.PI * rotateDelta.x / gfx.width;
+                    const xrot = -Math.PI * rotateDelta.y / gfx.height;
+                    outOfGlobeAxis.fromArray(this.camera.matrix.elements, 4);
+                    deltaRotation.setFromAxisAngle(outOfGlobeAxis, yrot);
+                    moveAroundGlobe.multiply(deltaRotation);
+                    outOfGlobeAxis.fromArray(this.camera.matrix.elements, 0);
+                    deltaRotation.setFromAxisAngle(outOfGlobeAxis, xrot);
+                    moveAroundGlobe.multiply(deltaRotation);
+                    lastTimeMouseMove = Date.now();
                 }
+                rotateStart.copy(rotateEnd);
                 break; }
             default:
         }
@@ -593,14 +622,12 @@ class EarthControls extends THREE.EventDispatcher {
 
     updateTarget() {
         // Update camera's target position
-        // 常にcameraの前方distanceの位置にtargetを置くため
         this.view.getPickingPositionFromDepth(null, pickedPosition);
         const distance = !isNaN(pickedPosition.x) ? this.camera.position.distanceTo(pickedPosition) : 100;
         targetPosition.set(0, 0, -distance);
         this.camera.localToWorld(targetPosition);
 
         // set new camera target on globe
-        // targetPositionを球面の座標系で表し、cameraTargetをそこに置く
         positionObject(targetPosition, cameraTarget);
         cameraTarget.matrixWorldInverse.copy(cameraTarget.matrixWorld).invert();
         targetPosition.copy(this.camera.position);
@@ -661,6 +688,7 @@ class EarthControls extends THREE.EventDispatcher {
 
         switch (this.state) {
             case this.states.ORBIT:
+            case this.states.ORBIT_BY_MIDDLEBUTTON:
             case this.states.PANORAMIC:
                 rotateStart.copy(coords);
                 break;
@@ -671,7 +699,8 @@ class EarthControls extends THREE.EventDispatcher {
                     lastNormalizedIntersection.copy(pickingPoint).normalize();
                     this.updateHelper(pickingPoint, helpers.picking);
                 } else {
-                    this.state = this.states.NONE;
+                    // picking out of sphere
+                    rotateStart.copy(coords);
                 }
                 break;
             }
@@ -721,7 +750,9 @@ class EarthControls extends THREE.EventDispatcher {
         //      * this.states.ORBIT
         //      * this.states.MOVE_GLOBE
         if (this.enableDamping) {
-            if (this.state === this.states.ORBIT && (sphericalDelta.theta > EPS || sphericalDelta.phi > EPS)) {
+            const isORBIT = (this.state === this.states.ORBIT || this.states === this.states.ORBIT_BY_MIDDLEBUTTON);
+            const isSphericalMoving = (sphericalDelta.theta > EPS || sphericalDelta.phi > EPS);
+            if (isORBIT && isSphericalMoving) {
                 this.player.play(durationDampingOrbital);
                 this._onEndingMove = () => this.onEndingMove();
                 this.player.addEventListener('animation-stopped', this._onEndingMove);
@@ -827,7 +858,7 @@ class EarthControls extends THREE.EventDispatcher {
                         lastNormalizedIntersection.copy(pickingPoint).normalize();
                         this.updateHelper(pickingPoint, helpers.picking);
                     } else {
-                        this.state = this.states.NONE;
+                        rotateStart.copy(coords);
                     }
                     break; }
                 case this.states.ORBIT:
@@ -838,7 +869,7 @@ class EarthControls extends THREE.EventDispatcher {
                     const dy = y - event.touches[1].pageY;
                     const distance = Math.sqrt(dx * dx + dy * dy);
                     dollyStart.set(0, distance);
-                    rotateStart.set(x, y);
+                    // rotateStart.set(x, y);
                     break; }
                 case this.states.PAN:
                     panStart.set(event.touches[0].pageX, event.touches[0].pageY);
@@ -855,6 +886,7 @@ class EarthControls extends THREE.EventDispatcher {
             this.player.stop();
         }
         if (this.enabled === false) { return; }
+        if (this.state === this.states.NONE) { return; }
 
         event.preventDefault();
         event.stopPropagation();
@@ -862,20 +894,38 @@ class EarthControls extends THREE.EventDispatcher {
         switch (event.touches.length) {
             case this.states.MOVE_GLOBE.finger: {
                 const coords = this.view.eventToViewCoords(event);
+                rotateEnd.copy(coords);
+                rotateDelta.subVectors(rotateEnd, rotateStart);
                 const normalized = this.view.viewToNormalizedCoords(coords);
                 raycaster.setFromCamera(normalized, this.camera);
-                // If there's intersection then move globe else we stop the move
+                // If there's intersection then move globe keeping intersection point
+                // else we just rotate globe
                 if (raycaster.ray.intersectSphere(pickSphere, intersection)) {
                     normalizedIntersection.copy(intersection).normalize();
+                    if (lastNormalizedIntersection.lengthSq() < EPS) {
+                        lastNormalizedIntersection.copy(normalizedIntersection);
+                    }
                     moveAroundGlobe.setFromUnitVectors(normalizedIntersection, lastNormalizedIntersection);
                     lastTimeMouseMove = Date.now();
                 } else {
-                    this.onMouseUp.bind(this)();
+                    lastNormalizedIntersection.set(0, 0, 0);
+                    const xaxis = (new THREE.Vector3()).fromArray(this.camera.matrix.elements, 0);
+                    const yaxis = (new THREE.Vector3()).fromArray(this.camera.matrix.elements, 4);
+                    const gfx = this.view.mainLoop.gfxEngine;
+                    const yrot = -Math.PI * rotateDelta.x / gfx.width;
+                    const xrot = -Math.PI * rotateDelta.y / gfx.height;
+                    deltaRotation.setFromAxisAngle(yaxis, yrot);
+                    moveAroundGlobe.multiply(deltaRotation);
+                    deltaRotation.setFromAxisAngle(xaxis, xrot);
+                    moveAroundGlobe.multiply(deltaRotation);
+                    lastTimeMouseMove = Date.now();
                 }
+                rotateStart.copy(rotateEnd);
                 break; }
             case this.states.ORBIT.finger:
             case this.states.DOLLY.finger: {
                 const gfx = this.view.mainLoop.gfxEngine;
+                /*
                 rotateEnd.set(event.touches[0].pageX, event.touches[0].pageY);
                 rotateDelta.subVectors(rotateEnd, rotateStart);
 
@@ -885,6 +935,8 @@ class EarthControls extends THREE.EventDispatcher {
                 this.rotateUp(2 * Math.PI * rotateDelta.y / gfx.height * this.rotateSpeed);
 
                 rotateStart.copy(rotateEnd);
+                */
+
                 const dx = event.touches[0].pageX - event.touches[1].pageX;
                 const dy = event.touches[0].pageY - event.touches[1].pageY;
                 const distance = Math.sqrt(dx * dx + dy * dy);
@@ -1093,7 +1145,7 @@ class EarthControls extends THREE.EventDispatcher {
     setZoom(zoom, isAnimated) {
         return this.lookAtCoordinate({ zoom }, isAnimated);
     }
-    
+
     /**
      * Changes the zoom of the central point of screen so that screen acts as a map with a specified scale.
      *  The view flies to the desired zoom scale;
