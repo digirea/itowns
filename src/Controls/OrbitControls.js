@@ -47,12 +47,13 @@ class OrbitControls extends THREE.EventDispatcher {
         this._posY = 0;
 
         this._cameraFirstPosition = new THREE.Vector3(0, 0, 0).copy(this._camera3D.position);
-        console.log(this._cameraFirstPosition);
 
         this._eye = new THREE.Vector3(0, 0, 0);
         this._eye.copy(this._camera3D.position);
         this._target = new THREE.Vector3(0, 0, 0);
         this._up = new THREE.Vector3(0, 0, 1); // zup for itowns gloveview
+
+        this._distance = ((new THREE.Vector3()).copy(this._eye).sub(this._target)).length() / 20;
 
         // axis
         this.axisZ = new THREE.Vector3(0, 0, 1);
@@ -94,8 +95,6 @@ class OrbitControls extends THREE.EventDispatcher {
         if (options.focusOnClick) {
             view.domElement.addEventListener('click', () => view.domElement.focus());
         }
-
-        this._lookedTarget = false;
         this.limitLen = -1;
     }
 
@@ -195,17 +194,6 @@ class OrbitControls extends THREE.EventDispatcher {
 
         this._posX = coords.x;
         this._posY = coords.y;
-
-        // console.log(this._eye);
-
-        const movedTargetToEye = (new THREE.Vector3()).copy(this._eye).sub(this._target);
-        // console.log(movedTargetToEye.length());
-
-        if (movedTargetToEye.length() < this.limitLen) {
-            this.limitLen = movedTargetToEye.length();
-        }
-
-        // this.limitLen = movedTargetToEye.length();
     }
 
     pan(coords) {
@@ -241,64 +229,45 @@ class OrbitControls extends THREE.EventDispatcher {
 
     onMouseWheel(event) {
         let delta = 0;
-        let limitLen = this.limitLen;
+        const previousEyePositoin = (new THREE.Vector3()).copy(this._eye);
+        const preEyeDir = (new THREE.Vector3()).copy(previousEyePositoin).normalize();
 
-        // ホイールの入力をdeltaに代入
+        // ホイールの入力をdeltaに代入(反転)
         if (event.wheelDelta !== undefined) {
-            delta = event.wheelDelta;
+            delta = -event.wheelDelta;
             // Firefox
         } else if (event.detail !== undefined) {
-            delta = -event.detail;
+            delta = event.detail;
         }
 
-        // カメラからターゲットのベクトルから距離を得る
+        // カメラからターゲットへの方向を示すベクトルを得る
         const targetToEye = (new THREE.Vector3()).copy(this._eye).sub(this._target);
         const targetToEyeLen = targetToEye.length();
         const normal1 = (new THREE.Vector3()).copy(targetToEye).normalize();
 
-        if (this._lookedTarget == true && this.limitLen == undefined) {
-            // console.log('test')
-            limitLen = this.centerToEyeLen;
-        } else if (limitLen === -1) {
-            limitLen = targetToEyeLen / 20;
-        }
-
-        this.scale = targetToEyeLen - limitLen;
-
-        if (this._lookedTarget === true || this.scale <= 0) {
-            this.scale = 1;
-            this._lookedTarget = false;
-        }
-
-        let rad = targetToEyeLen;
-        rad -= delta * this.scale / 1000;
+        // スケールの尺度radを計算(ターゲットからカメラの距離をdelta*10で割る)
+        const rad = targetToEyeLen / delta * 10;
 
         // カメラをradの値に基づき移動
-        this._eye = (new THREE.Vector3()).copy(this._target).add(normal1.multiplyScalar(rad));
+        this._eye = (new THREE.Vector3()).copy(this._eye).add(normal1.multiplyScalar(rad));
 
-        // 移動したあとのカメラからターゲットのベクトルから距離を得る
+        // 移動したあとのカメラからターゲットのベクトルをもとに距離を得る
         const movedTargetToEye = (new THREE.Vector3()).copy(this._eye).sub(this._target);
-        const normal2 = (new THREE.Vector3()).copy(movedTargetToEye).normalize();
+        const movedTargetToEyeLen = movedTargetToEye.length();
 
-        const value = normal1.dot(normal2);
 
-        if (value <= 0 || movedTargetToEye.length() <= limitLen) {
-            if (delta > 0 && this.limitPosition !== undefined) {
-                this.scale = 0;
-                this._eye = this.limitPosition;
-            } else {
-                this._eye = (new THREE.Vector3()).copy(this._target).add(normal1.multiplyScalar(-rad));
-            }
+        // if (movedTargetToEyeLen < this.centerToEyeLen && delta < 0) {
+        //     this._eye = previousEyePositoin;
+        //     console.log('test');
+        // }
+        if (movedTargetToEyeLen < this.centerToEyeLen && delta < 0) {
+            this._eye = preEyeDir.multiplyScalar(this.centerToEyeLen);
+            console.log('test');
         }
-
-        this.limitLen = limitLen;
 
         this.applyCameraMatrix();
 
         this.view.notifyChange(this._camera3D);
-
-        console.log(this.limitLen);
-        console.log(this._eye);
     }
 
     onKeyDown(e) {
@@ -327,9 +296,6 @@ class OrbitControls extends THREE.EventDispatcher {
      * @param {*} event 
      */
     fitCamera(event) {
-        this._lookedTarget = true;
-
-
         const minPoint = event.min;
 
         const centerPoint = event.getCenter();
@@ -347,7 +313,6 @@ class OrbitControls extends THREE.EventDispatcher {
             centerPoint.y,
             centerPoint.z,
         ));
-        this.limitPosition = this._eye;
 
         this._target = centerPoint;
 
@@ -357,6 +322,10 @@ class OrbitControls extends THREE.EventDispatcher {
         this.applyCameraMatrix();
 
         this.view.notifyChange(this._camera3D);
+
+        console.log(this._target);
+        console.log(radius);
+        console.log(centerToEyeLen);
     }
 
     /**
