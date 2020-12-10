@@ -64,6 +64,7 @@ and open the template in the editor.
                 }
             );
 
+/*
             itowns.Fetcher.json("examples/layers/JSONLayers/ScanEX.json")
                 .then(createWMTSSourceFromConfig)
                 .then(addColorLayerFromConfig);
@@ -91,7 +92,7 @@ and open the template in the editor.
             itowns.Fetcher.json("examples/layers/JSONLayers/Denomination.json")
                 .then(createWMTSSourceFromConfig)
                 .then(addColorLayerFromConfig);
-
+*/
             function addElevationLayerFromConfig(config) {
                 var layer = new itowns.ElevationLayer(config.id, config);
                 view.addLayer(layer).then(
