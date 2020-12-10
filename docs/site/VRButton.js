@@ -41,6 +41,8 @@ class VRButton {
         function showEnterVR(/*device*/) {
             window.log("run showEnterVR ");
 
+            console.log(view.camera.camera3D.quaternion);
+
             function onSessionStarted(session) {
                 window.log("run onSessionStarted ");
 
@@ -56,7 +58,7 @@ class VRButton {
 
                 button.firstRun = false;
 
-                view.camera.camera3D.fov = 90;
+                view.camera.camera3D.fov = 75;
                 if (view.controls) {
                     view.controls.enabled = false;
                 }
@@ -81,6 +83,20 @@ class VRButton {
 
                 view.camera.camera3D.position.copy(view.BeforeVRP);
                 view.camera.camera3D.quaternion.copy(view.BeforeVRQ);
+                view.camera.camera3D.position.setLength(
+                    window.defaultVRCamHeight + 950000
+                );
+
+                let position = view.camera.camera3D.position;
+                let normPosition = new itowns.THREE.Vector3(
+                    position.x,
+                    position.y,
+                    position.z
+                );
+                normPosition.normalize();
+                view.camera.camera3D.updateMatrix();
+                view.camera.camera3D.lookAt(normPosition);
+
                 view.camera.camera3D.updateProjectionMatrix();
 
                 if (view.controls) {
@@ -240,22 +256,34 @@ window.fixCamLonPos = function () {
 
 /// カメラを水平線方向に向ける
 window.setCamLookHorizon = function () {
-    // カメラを地球の中心に向けてから
+    console.log(view.camera.camera3D.quaternion);
+
     let position = view.camera.camera3D.position;
     let normPosition = new itowns.THREE.Vector3(
         position.x,
         position.y,
         position.z
     );
-    normPosition.normalize();
-    view.camera.camera3D.lookAt(normPosition);
-    // view.notifyChange(view.camera.camera3D);
 
-    /* カメラを水平線に向ける */
+    normPosition.normalize();
+    // カメラを地球の中心に向けてから
+    view.camera.camera3D.lookAt(normPosition);
+    view.camera.camera3D.updateMatrix();
+    /*
+    // カメラを水平線に向ける
     const q = new itowns.THREE.Quaternion();
     const axis = new itowns.THREE.Vector3(1, 0, 0);
-    q.setFromAxisAngle(axis, (90 * Math.PI) / 180);
+    q.setFromAxisAngle(axis, Math.PI / 2);
     view.camera.camera3D.quaternion.multiply(q);
+    view.camera.camera3D.updateMatrix();
+*/
+    let mx = new itowns.THREE.Matrix4().copy(view.camera.camera3D.matrix);
+    const obj = new itowns.THREE.Object3D();
+    obj.applyMatrix4(mx);
+    obj.translateY(10000);
+    view.camera.camera3D.lookAt(obj.position);
+    view.camera.camera3D.updateMatrix();
+    view.camera.camera3D.updateMatrixWorld();
     view.camera.camera3D.updateProjectionMatrix();
     // view.notifyChange(view.camera); //動作に影響がないようなら、コメントアウトのまま（重い
 };
@@ -303,7 +331,7 @@ function checkDevice() {
         const addRollQ = new itowns.THREE.Quaternion();
 
         if (r.xr.isPresenting /*view.xrEnabled*/) {
-            window.frameSkip--;
+            window.frameSkip++;
 
             //前回の移動量を戻す
             if (view.setFirstParam) {
@@ -317,6 +345,8 @@ function checkDevice() {
             window.tmpCam = r.xr.getCamera(window.tmpCam);
             camBaseQ.copy(window.tmpCam.quaternion);
 
+            let inputValue = 0.1;
+
             // コントローラーからの入力
             if (window.currentSession) {
                 //only if we are in a webXR session
@@ -326,30 +356,32 @@ function checkDevice() {
                     const vectUp = sourceXR.gamepad.axes[3];
                     const vectR = sourceXR.gamepad.axes[2];
 
+                    inputValue = Math.max(inputValue, Math.abs(vectR));
+                    inputValue = Math.max(inputValue, Math.abs(vectUp));
+
                     if (sourceXR.handedness == "left") {
                         //左手コントローラー
                         //console.log("left");
 
                         //端末の回転が入る前のquaternionが必要
-                        const moveBaseQ = view.camera.camera3D.quaternion.clone();
-                        const axis = new itowns.THREE.Vector3(0, 1, 0);
-                        addRollQ.setFromAxisAngle(axis, window.addedRollY);
-                        moveBaseQ.multiply(addRollQ);
-
-                        const mx = new itowns.THREE.Matrix4().makeRotationFromQuaternion(
-                            moveBaseQ
+                        const mx = new itowns.THREE.Matrix4().copy(
+                            view.camera.camera3D.matrix
                         );
 
                         // 移動させる
                         const obj = new itowns.THREE.Object3D();
                         obj.applyMatrix4(mx);
-                        obj.translateZ(vectUp * 10 * window.nowCamMoveFactor);
-                        obj.translateX(vectR * 10 * window.nowCamMoveFactor);
+                        obj.translateZ(vectUp * 50 * window.nowCamMoveFactor);
+                        obj.translateX(vectR * 50 * window.nowCamMoveFactor);
                         const lastCamHeight = view.camera.camera3D.position.length();
-                        obj.updateMatrixWorld(true);
-                        view.camera.camera3D.position.add(obj.position);
-                        window.setCamLookHorizon();
+                        obj.updateMatrix();
+
+                        view.camera.camera3D.position.add(
+                            obj.position.sub(view.camera.camera3D.position)
+                        );
+
                         view.camera.camera3D.position.setLength(lastCamHeight);
+                        window.setCamLookHorizon();
                     } else if (sourceXR.handedness == "right") {
                         //右手コントローラー
                         //console.log("right");
@@ -383,19 +415,22 @@ function checkDevice() {
             }
             window.nowCamMoveFactor =
                 1.0 +
-                (view.camera.camera3D.position.length() - minLength) * 0.002;
+                (view.camera.camera3D.position.length() - minLength) * 0.001;
 
             // window.nowCamMoveFactor = 10; //明日決め
+            let nowTargetFrameSkip = window.frameSkipBase;
+            if (inputValue > 0.1) {
+                nowTargetFrameSkip *= 10;
+            }
 
             camQ.copy(window.tmpCam.quaternion);
             view.camera.camera3D.quaternion.multiply(window.tmpCam.quaternion);
 
-            if (window.frameSkip <= 0) {
+            if (window.frameSkip > nowTargetFrameSkip) {
                 // view.camera.camera3D.updateMatrixWorld();
                 view.camera.camera3D.updateProjectionMatrix();
                 view.notifyChange(view.camera);
-                // マップ更新頻度の調整。今は１０ループに１回にしている
-                window.frameSkip = window.frameSkipBase;
+                window.frameSkip = 0;
             }
         }
 
