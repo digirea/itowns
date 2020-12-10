@@ -164,6 +164,10 @@ MainLoop.prototype._update = function _update(view, updateSources, dt) {
 
 MainLoop.prototype._step = function _step(view, timestamp) {
     const dt = timestamp - this._lastTimestamp;
+    if (this.gfxEngine.renderer.xr) {
+        vrFlag = this.gfxEngine.renderer.xr.isPresenting;
+    }
+    
     view._executeFrameRequestersRemovals();
 
     view.execFrameRequesters(MAIN_LOOP_EVENTS.UPDATE_START, dt, this._updateLoopRestarted);
@@ -207,7 +211,7 @@ MainLoop.prototype._step = function _step(view, timestamp) {
     // view.notifyChange() is called with redraw=true)
     // As such there's no continuous update-loop, instead we use a ad-hoc update/render
     // mechanism.
-    if (willRedraw) {
+    if (willRedraw && !vrFlag) {
         this._renderView(view, dt);
     }
 
