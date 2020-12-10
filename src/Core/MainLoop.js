@@ -164,6 +164,8 @@ MainLoop.prototype._update = function _update(view, updateSources, dt) {
 
 MainLoop.prototype._step = function _step(view, timestamp) {
     const dt = timestamp - this._lastTimestamp;
+    
+    let vrFlag = false;
     if (this.gfxEngine.renderer.xr) {
         vrFlag = this.gfxEngine.renderer.xr.isPresenting;
     }
