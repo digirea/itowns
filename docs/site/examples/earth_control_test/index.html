@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <style type="text/css">
+        #info {
+            color: #7ad7ff;
+            font-family: 'Open Sans', sans-serif;
+            position: absolute;
+            top: 0;
+            left: 0;
+            padding: 0.3rem;
+            background-color: #404040;
+            z-index: 1;
+        }
+
+        @media (max-width: 600px) {
+
+            #info,
+            .dg {
+                display: none;
+            }
+        }
+    </style>
+    <link rel="stylesheet" type="text/css" href="../css/example.css">
+
+    <script src="./itowns.js"></script>
+    <script src="./gsi.js"></script>
+</head>
+
+<body>
+    <div id="viewerDiv"></div>
+    <div id="info"></div>
+</body>
+
+</html>
