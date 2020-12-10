@@ -1,0 +1,66 @@
+#createSphereMapDom{
+    width:100%;
+    height: 100%;
+
+}
+#createSphereMapDom_sphereMapViewer{
+    position: absolute;
+    left: 0%;
+    top: calc(50% - 200px);
+
+    display: none;
+}
+#createSphereMapDom_backGroundViewerDiv{    
+    width:512px;
+    height: 512px;
+
+    position: absolute;
+    left: 0%;
+    top: calc(50% - 200px);
+
+    display: block;
+    opacity: 0.00000000001;
+}
+#ss{
+    display: none;
+    z-index: 1000;
+}
+
+#createSphereMapDom_buttonArea{
+    position: absolute;
+    bottom: 2px;
+    display: flex;
+    align-items: center;
+
+    width: 99%;
+    height: 100px;
+
+    background-color: brown;
+    border: solid 2px white;
+
+    /* display: none; */
+
+    z-index: 1000;
+}
+
+.button{
+    margin: 10px;
+    padding: 4px;
+    text-align:center;
+
+    width: 100px;
+    height: 70px;
+
+    background-color: white;
+    border-radius: 2px;
+}
+.inputNum{
+    width: 80px;
+}
+
+#createSphereMapDom_mapImages{
+    display: none;    
+}
+#createSphereMapDom_CameraTest{
+    display: none;    
+}
