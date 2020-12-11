@@ -262,17 +262,24 @@ window.setCamLookHorizon = function () {
     );
 
     normPosition.normalize();
+    let upVector = new itowns.THREE.Vector3().copy(normPosition);
     // カメラを地球の中心に向けてから
-    view.camera.camera3D.lookAt(normPosition);
-    view.camera.camera3D.updateMatrix();
-    /*
     // カメラを水平線に向ける
     const q = new itowns.THREE.Quaternion();
     const axis = new itowns.THREE.Vector3(1, 0, 0);
     q.setFromAxisAngle(axis, Math.PI / 2);
+    upVector
+        .applyQuaternion(view.camera.camera3D.quaternion)
+        .applyQuaternion(q);
+
+    view.camera.camera3D.up.copy(upVector);
+    view.camera.camera3D.lookAt(normPosition);
+    view.camera.camera3D.updateMatrix();
+
     view.camera.camera3D.quaternion.multiply(q);
     view.camera.camera3D.updateMatrix();
-*/
+
+    /*
     let mx = new itowns.THREE.Matrix4().copy(view.camera.camera3D.matrix);
     const obj = new itowns.THREE.Object3D();
     obj.applyMatrix4(mx);
@@ -281,6 +288,8 @@ window.setCamLookHorizon = function () {
     view.camera.camera3D.updateMatrix();
     view.camera.camera3D.updateMatrixWorld();
     view.camera.camera3D.updateProjectionMatrix();
+*/
+
     // view.notifyChange(view.camera); //動作に影響がないようなら、コメントアウトのまま（重い
 };
 
