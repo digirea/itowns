@@ -18,7 +18,7 @@ const POINT_ATTTRIBUTES = {
         numElements: 1,
         numByte: 2,
         // using Float32Array because Float16Array doesn't exist
-        arrayType: Float32Array,
+        arrayType: Uint16Array,
         attributeName: 'intensity',
         normalized: true,
     },
@@ -26,6 +26,7 @@ const POINT_ATTTRIBUTES = {
         numElements: 1,
         arrayType: Uint8Array,
         attributeName: 'classification',
+        normalized: true,
     },
     // Note: at the time of writing, PotreeConverter will only generate normals in Oct16 format
     // see PotreeConverter.cpp:121
@@ -66,11 +67,12 @@ export default {
     /** Parse .bin PotreeConverter format and convert to a THREE.BufferGeometry
      * @function parse
      * @param {ArrayBuffer} buffer - the bin buffer.
-     * @param {Object} pointAttributes - the point attributes information contained in cloud.js
+     * @param {Object} options
+     * @param {string[]} options.in.pointAttributes - the point attributes information contained in cloud.js
      * @return {Promise} - a promise that resolves with a THREE.BufferGeometry.
      *
      */
-    parse: function parse(buffer, pointAttributes) {
+    parse: function parse(buffer, options) {
         if (!buffer) {
             throw new Error('No array buffer provided.');
         }
@@ -78,7 +80,7 @@ export default {
         const view = new DataView(buffer);
         // Format: X1,Y1,Z1,R1,G1,B1,A1,[...],XN,YN,ZN,RN,GN,BN,AN
         let pointByteSize = 0;
-        for (const potreeName of pointAttributes) {
+        for (const potreeName of options.in.pointAttributes) {
             pointByteSize += POINT_ATTTRIBUTES[potreeName].byteSize;
         }
         const numPoints = Math.floor(buffer.byteLength / pointByteSize);
@@ -86,7 +88,7 @@ export default {
         const geometry = new THREE.BufferGeometry();
         let elemOffset = 0;
         let attrOffset = 0;
-        for (const potreeName of pointAttributes) {
+        for (const potreeName of options.in.pointAttributes) {
             const attr = POINT_ATTTRIBUTES[potreeName];
             const arrayLength = attr.numElements * numPoints;
             const array = new attr.arrayType(arrayLength);

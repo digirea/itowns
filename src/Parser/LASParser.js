@@ -22,28 +22,34 @@ export default {
      *
      * @param {ArrayBuffer} data - The file content to parse.
      * @param {Object} [options] - Options to give to the parser.
-     * @param {number|string} [options.colorDepth='auto'] - Does the color
+     * @param {number|string} [options.in.colorDepth='auto'] - Does the color
      * encoding is known ? Is it `8` or `16` bits ? By default it is to
      * `'auto'`, but it will be more performant if a specific value is set.
+     * @param {number} [options.out.skip=1] - Read one point from every `skip`
+     * points.
      *
      * @return {Promise} A promise resolving with a `THREE.BufferGeometry`. The
      * header of the file is contained in `userData`.
      */
     parse(data, options = {}) {
-        options.colorDepth = options.colorDepth || 'auto';
-        options.skip = 1;
-
-        return LASLoader.parse(data, { las: options }).then((parsedData) => {
+        options.in = options.in || {};
+        options.out = options.out || {};
+        return LASLoader.parse(data, {
+            las: {
+                colorDepth: options.in.colorDepth || 'auto',
+                skip: options.out.skip || 1,
+            },
+        }).then((parsedData) => {
             const geometry = new THREE.BufferGeometry();
             geometry.userData = parsedData.loaderData.header;
 
             const positionBuffer = new THREE.BufferAttribute(parsedData.attributes.POSITION.value, 3, false);
             geometry.setAttribute('position', positionBuffer);
 
-            const intensityBuffer = new THREE.BufferAttribute(parsedData.attributes.intensity.value, 1, false);
+            const intensityBuffer = new THREE.BufferAttribute(parsedData.attributes.intensity.value, 1, true);
             geometry.setAttribute('intensity', intensityBuffer);
 
-            const classificationBuffer = new THREE.BufferAttribute(parsedData.attributes.classification.value, 1, false);
+            const classificationBuffer = new THREE.BufferAttribute(parsedData.attributes.classification.value, 1, true);
             geometry.setAttribute('classification', classificationBuffer);
 
             if (parsedData.attributes.COLOR_0) {

@@ -1,4 +1,4 @@
-export const REVISION = '2.26.0';
+export const REVISION = '2.28.1';
 
 // Geographic tools
 export { default as Extent } from 'Core/Geographic/Extent';
@@ -22,7 +22,9 @@ export { default as FirstPersonControls } from 'Controls/FirstPersonControls';
 export { default as StreetControls } from 'Controls/StreetControls';
 export { default as PlanarControls } from 'Controls/PlanarControls';
 export { default as OrbitControls } from 'Controls/OrbitControls';
+export { default as EarthControls } from 'Controls/EarthControls';
 export { CONTROL_EVENTS } from 'Controls/GlobeControls';
+export { PLANAR_CONTROL_EVENT } from 'Controls/PlanarControls';
 export { default as Feature2Mesh } from 'Converter/Feature2Mesh';
 export { default as FeaturesUtils } from 'Utils/FeaturesUtils';
 export { default as DEMUtils } from 'Utils/DEMUtils';
@@ -54,6 +56,7 @@ export { default as ColorLayersOrdering } from 'Renderer/ColorLayersOrdering';
 export { default as GlobeLayer } from 'Core/Prefab/Globe/GlobeLayer';
 export { default as PlanarLayer } from 'Core/Prefab/Planar/PlanarLayer';
 export { default as LabelLayer } from 'Layer/LabelLayer';
+export { default as EntwinePointTileLayer } from 'Layer/EntwinePointTileLayer';
 
 // Sources provided by default in iTowns
 // A custom source should at least implements Source
@@ -68,6 +71,7 @@ export { default as VectorTilesSource } from 'Source/VectorTilesSource';
 export { default as OrientedImageSource } from 'Source/OrientedImageSource';
 export { default as PotreeSource } from 'Source/PotreeSource';
 export { default as C3DTilesSource } from 'Source/C3DTilesSource';
+export { default as EntwinePointTileSource } from 'Source/EntwinePointTileSource';
 
 // Parsers provided by default in iTowns
 // Custom parser can be implemented as wanted, as long as the main function

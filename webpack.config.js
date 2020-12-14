@@ -1,7 +1,9 @@
 const fs = require('fs');
 const path = require('path');
 
-const debugBuild = process.env.NODE_ENV === 'development';
+const mode = process.env.NODE_ENV;
+
+const debugBuild = mode === 'development';
 
 /*
    configuring babel:
@@ -45,13 +47,25 @@ module.exports = (env) => {
         loader: 'babel-loader',
         options: babelConf,
     });
+
     return {
+        mode,
+        node: {
+            Buffer: false,
+            process: false,
+        },
         context: path.resolve(__dirname),
         resolve: {
             modules: [path.resolve(__dirname, 'src'), 'node_modules'],
         },
         entry: {
-            itowns: ['@babel/polyfill', 'url-polyfill', 'whatwg-fetch', './src/MainBundle.js'],
+            itowns: [
+                'core-js',
+                'regenerator-runtime/runtime',
+                'url-polyfill',
+                'whatwg-fetch',
+                './src/MainBundle.js',
+            ],
             debug: ['./utils/debug/Main.js'],
         },
         devtool: 'source-map',
