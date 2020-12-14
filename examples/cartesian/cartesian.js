@@ -148,29 +148,43 @@ window.onload = function () {
 
     document.body.appendChild(resetButton);
 
-    // var trackBackButton = document.createElement('button');
-    // trackBackButton.style.position = 'fixed'
-    // trackBackButton.style.left ='10px'
-    // trackBackButton.style.top ='135px'
-    // trackBackButton.style.zIndex = 1;
-    // trackBackButton.textContent = 'Track Back'
-    // trackBackButton.onclick = function () {
-    //     controls.trackBack();
-    // }
+    var sideButton = document.createElement('button');
+    sideButton.style.position = 'fixed'
+    sideButton.style.left ='10px'
+    sideButton.style.top ='135px'
+    sideButton.style.zIndex = 1;
+    sideButton.textContent = 'side'
+    sideButton.onclick = function () {
+        var obj = view.scene.children[view.scene.children.length - 1];
+        for (var i = 0; i < obj.children.length; ++i) {
+            var child = obj.children[i];
+            if (child.type === 'Mesh') {
+                child.geometry.computeBoundingBox();
+                controls.sideCamera((new itowns.THREE.Box3()).copy( child.geometry.boundingBox ).applyMatrix4( child.matrixWorld ));
+            }
+        }
+    }
 
-    // document.body.appendChild(trackBackButton);
+    document.body.appendChild(sideButton);
 
-    // var trackUpButton = document.createElement('button');
-    // trackUpButton.style.position = 'fixed'
-    // trackUpButton.style.left ='10px'
-    // trackUpButton.style.top ='160px'
-    // trackUpButton.style.zIndex = 1;
-    // trackUpButton.textContent = 'Track Up'
-    // trackUpButton.onclick = function () {
-    //     controls.trackUp();
-    // }
+    var overLookButton = document.createElement('button');
+    overLookButton.style.position = 'fixed'
+    overLookButton.style.left ='10px'
+    overLookButton.style.top ='160px'
+    overLookButton.style.zIndex = 1;
+    overLookButton.textContent = 'overLook'
+    overLookButton.onclick = function () {
+        var obj = view.scene.children[view.scene.children.length - 1];
+        for (var i = 0; i < obj.children.length; ++i) {
+            var child = obj.children[i];
+            if (child.type === 'Mesh') {
+                child.geometry.computeBoundingBox();
+                controls.overLookCamera((new itowns.THREE.Box3()).copy( child.geometry.boundingBox ).applyMatrix4( child.matrixWorld ));
+            }
+        }
+    }
 
-    // document.body.appendChild(trackUpButton);
+    document.body.appendChild(overLookButton);
     
     //injectChOWDER(view, viewerDiv);
 };

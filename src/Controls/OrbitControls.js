@@ -180,7 +180,7 @@ class OrbitControls extends THREE.EventDispatcher {
 
         const quatZ = new THREE.Quaternion();
         const quatY = new THREE.Quaternion();
-        
+
         quatZ.setFromAxisAngle(this.axisZ, rotZ);
         quatY.setFromAxisAngle(cross, rotY);
         this._eye.applyQuaternion(quatY.multiply(quatZ));
@@ -303,44 +303,15 @@ class OrbitControls extends THREE.EventDispatcher {
      * @param {*} event 
      */
     fitCamera(event) {
-        const minPoint = event.min;
-        // console.log(event);
+        const centerToEyeLen = this.getCenterToEyeLen(event);
 
-        const centerPoint = event.getCenter();
-        this._centerPoint = centerPoint;
-
-        const radiusVector = (new THREE.Vector3()).copy(minPoint).sub(centerPoint);
-        const radius = radiusVector.length();
-
-        const centerToEyeLen = radius / Math.sin(this._camera3D.fov / 2 * Math.PI / 180);
-
-        this.centerToEyeLen = centerToEyeLen;
+        const centerPoint = new THREE.Vector3().copy(this._centerPoint);
 
         this._eye = (new THREE.Vector3(
             centerPoint.x + centerToEyeLen,
             centerPoint.y,
             centerPoint.z,
         ));
-
-        // const va = (new THREE.Vector3(
-        //     centerPoint.x - event.min.x,
-        //     centerPoint.y - event.min.y,
-        //     centerPoint.z,
-        // ));
-
-        // const vb = (new THREE.Vector3(
-        //     centerPoint.x - event.max.x,
-        //     centerPoint.y - event.max.y,
-        //     centerPoint.z,
-        // ));
-
-        // this.normalVector = (new THREE.Vector3()).copy(va).cross(vb).normalize();
-        // console.log(this.normalVector);
-
-        this._target = centerPoint;
-
-        this._camera3D.near = 1;
-        this._camera3D.far = centerToEyeLen + radius * 2;
 
         this.applyCameraMatrix();
 
@@ -357,6 +328,57 @@ class OrbitControls extends THREE.EventDispatcher {
 
         this.applyCameraMatrix();
         this.view.notifyChange(this._camera3D);
+    }
+
+    sideCamera(event) {
+        const centerToEyeLen = this.getCenterToEyeLen(event);
+
+        const centerPoint = new THREE.Vector3().copy(this._centerPoint);
+
+        this._eye = (new THREE.Vector3(
+            centerPoint.x,
+            centerPoint.y + centerToEyeLen,
+            centerPoint.z,
+        ));
+
+        this.applyCameraMatrix();
+
+        this.view.notifyChange(this._camera3D);
+    }
+
+    overLookCamera(event) {
+        const centerToEyeLen = this.getCenterToEyeLen(event);
+
+        const centerPoint = new THREE.Vector3().copy(this._centerPoint);
+
+        this._eye = (new THREE.Vector3(
+            centerPoint.x + centerToEyeLen / 10,
+            centerPoint.y,
+            centerPoint.z + centerToEyeLen,
+        ));
+
+        this.applyCameraMatrix();
+
+        this.view.notifyChange(this._camera3D);
+    }
+
+    getCenterToEyeLen(e) {
+        const minPoint = e.min;
+        const centerPoint = e.getCenter();
+        this._centerPoint = centerPoint;
+
+        const radiusVector = (new THREE.Vector3()).copy(minPoint).sub(centerPoint);
+        const radius = radiusVector.length();
+
+        const centerToEyeLen = radius / Math.sin(this._camera3D.fov / 2 * Math.PI / 180);
+
+        this.centerToEyeLen = centerToEyeLen;
+
+        this._target = centerPoint;
+        this._camera3D.near = 1;
+        this._camera3D.far = centerToEyeLen + radius * 2;
+
+        return centerToEyeLen;
     }
 }
 
