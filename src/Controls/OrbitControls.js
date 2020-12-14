@@ -54,6 +54,7 @@ class OrbitControls extends THREE.EventDispatcher {
         this._up = new THREE.Vector3(0, 0, 1); // zup for itowns gloveview
 
         this._distance = ((new THREE.Vector3()).copy(this._eye).sub(this._target)).length() / 20;
+        this._centerPoint = new THREE.Vector3(0, 0, 0);
 
         // axis
         this.axisZ = new THREE.Vector3(0, 0, 1);
@@ -164,6 +165,11 @@ class OrbitControls extends THREE.EventDispatcher {
     rotate(coords) {
         const gfx = this.view.mainLoop.gfxEngine;
 
+        const eyeVectorTemp = (new THREE.Vector3()).copy(this._eye);
+
+        const moveV = (new THREE.Vector3()).copy(this._centerPoint).negate();
+        this._eye.add(moveV);
+
         const rotZ = -2 * Math.PI * (coords.x - this._posX) / gfx.width * 0.5;
         const rotY = -2 * Math.PI * (coords.y - this._posY) / gfx.height * 0.5;
 
@@ -171,22 +177,15 @@ class OrbitControls extends THREE.EventDispatcher {
         const cameraToTarget = (new THREE.Vector3()).copy(cameraVector).normalize();
 
         const cross = (new THREE.Vector3()).copy(cameraToTarget).cross(this.axisZ).normalize();
-        
-        // const proVec = (new THREE.Vector3()).projectOnVector(cameraVector);
-        // const axisZ = (proVec.add(cameraVector)).normalize();
 
         const quatZ = new THREE.Quaternion();
         const quatY = new THREE.Quaternion();
-
-        const eyeVectorTemp = (new THREE.Vector3()).copy(this._eye);
-
-        // const axisZ = new THREE.Vector3(0, 0, this._target.z).normalize();
-
-        // quatZ.setFromAxisAngle(axisZ, rotZ);
         
         quatZ.setFromAxisAngle(this.axisZ, rotZ);
         quatY.setFromAxisAngle(cross, rotY);
         this._eye.applyQuaternion(quatY.multiply(quatZ));
+
+        this._eye.add(this._centerPoint);
 
         const eyeVector = (new THREE.Vector3()).copy(this._target).sub(this._eye);
         const theta = (eyeVector.normalize()).angleTo(this.axisZ);
@@ -275,7 +274,7 @@ class OrbitControls extends THREE.EventDispatcher {
 
         this.view.notifyChange(this._camera3D);
 
-        console.log(this._eye);
+        // console.log(this._eye);
     }
 
     onKeyDown(e) {
@@ -305,8 +304,10 @@ class OrbitControls extends THREE.EventDispatcher {
      */
     fitCamera(event) {
         const minPoint = event.min;
+        // console.log(event);
 
         const centerPoint = event.getCenter();
+        this._centerPoint = centerPoint;
 
         const radiusVector = (new THREE.Vector3()).copy(minPoint).sub(centerPoint);
         const radius = radiusVector.length();
@@ -314,13 +315,27 @@ class OrbitControls extends THREE.EventDispatcher {
         const centerToEyeLen = radius / Math.sin(this._camera3D.fov / 2 * Math.PI / 180);
 
         this.centerToEyeLen = centerToEyeLen;
-        this.limitLen = this.centerToEyeLen;
 
         this._eye = (new THREE.Vector3(
             centerPoint.x + centerToEyeLen,
             centerPoint.y,
             centerPoint.z,
         ));
+
+        // const va = (new THREE.Vector3(
+        //     centerPoint.x - event.min.x,
+        //     centerPoint.y - event.min.y,
+        //     centerPoint.z,
+        // ));
+
+        // const vb = (new THREE.Vector3(
+        //     centerPoint.x - event.max.x,
+        //     centerPoint.y - event.max.y,
+        //     centerPoint.z,
+        // ));
+
+        // this.normalVector = (new THREE.Vector3()).copy(va).cross(vb).normalize();
+        // console.log(this.normalVector);
 
         this._target = centerPoint;
 
