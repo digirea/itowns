@@ -32,18 +32,18 @@ function loadGSIColor(view, callback) {
 function loadObjLayer(view, callback) {
     var manager = new itowns.THREE.LoadingManager();
     var objLoader = new OBJLoader(manager);
-    objLoader.load('teapot.obj', function (object) {
-        var material = new THREE.MeshBasicMaterial({color: 0x6699FF})
+    objLoader.load('minimam3.obj', function (object) {
+        var material = new THREE.MeshBasicMaterial({ color: 0x6699FF })
         for (var i = 0; i < object.children.length; ++i) {
-            object.children[i].rotation.z = 90 * Math.PI/180;
-            object.children[i].rotation.y = 90 * Math.PI/180;
+            object.children[i].rotation.z = 90 * Math.PI / 180;
+            object.children[i].rotation.y = 90 * Math.PI / 180;
             object.children[i].updateMatrixWorld();
 
             object.children[i].geometry.scale(100000, 100000, 100000);
             object.children[i].material = material;
         }
         view.scene.add(object);
-        view.notifyChange();  
+        view.notifyChange();
     });
 }
 
@@ -56,7 +56,7 @@ window.onload = function () {
         range: 25e6
     };
     var view = new itowns.GlobeView(viewerDiv, placement, {
-        noControls : true
+        noControls: true
     });
 
     loadGSIColor(view, function () {
@@ -64,7 +64,7 @@ window.onload = function () {
         view.notifyChange();
     });
 
-    var grid = new itowns.THREE.GridHelper( 10000000, 10);
+    var grid = new itowns.THREE.GridHelper(10000000, 10);
     grid.geometry.rotateX(Math.PI / 2);
     view.scene.add(grid);
 
@@ -79,8 +79,8 @@ window.onload = function () {
     // meshのバウンディングボックスを生成してコントローラに送る
     var button = document.createElement('button');
     button.style.position = 'fixed'
-    button.style.left ='10px'
-    button.style.top ='10px'
+    button.style.left = '10px'
+    button.style.top = '10px'
     button.style.zIndex = 1;
     button.textContent = 'Fit Camera'
     button.onclick = function () {
@@ -89,7 +89,7 @@ window.onload = function () {
             var child = obj.children[i];
             if (child.type === 'Mesh') {
                 child.geometry.computeBoundingBox();
-                controls.fitCamera((new itowns.THREE.Box3()).copy( child.geometry.boundingBox ).applyMatrix4( child.matrixWorld ));
+                controls.fitCamera((new itowns.THREE.Box3()).copy(child.geometry.boundingBox).applyMatrix4(child.matrixWorld));
             }
         }
     }
@@ -97,17 +97,17 @@ window.onload = function () {
 
     let para = document.createElement('div');
     para.style.position = 'fixed'
-    para.style.left ='10px'
-    para.style.top ='35px'
+    para.style.left = '10px'
+    para.style.top = '35px'
     para.style.zIndex = 1;
     para.id = "para";
     this.document.body.appendChild(para);
 
     let xp = document.createElement('input');
-   
+
     xp.style.position = 'fixed'
-    xp.style.left ='10px'
-    xp.style.top ='35px'
+    xp.style.left = '10px'
+    xp.style.top = '35px'
     xp.style.color = "red"
     xp.style.zIndex = 1;
     xp.id = "positionx";
@@ -115,10 +115,10 @@ window.onload = function () {
     para.appendChild(xp);
 
     let yp = document.createElement('input');
-   
+
     yp.style.position = 'fixed'
-    yp.style.left ='10px'
-    yp.style.top ='60px'
+    yp.style.left = '10px'
+    yp.style.top = '60px'
     yp.style.color = "red"
     yp.style.zIndex = 1;
     yp.id = "positiony";
@@ -126,10 +126,10 @@ window.onload = function () {
     para.appendChild(yp);
 
     let zp = document.createElement('input');
-   
+
     zp.style.position = 'fixed'
-    zp.style.left ='10px'
-    zp.style.top ='85px'
+    zp.style.left = '10px'
+    zp.style.top = '85px'
     zp.style.color = "red"
     zp.style.zIndex = 1;
     zp.id = "positionz";
@@ -138,8 +138,8 @@ window.onload = function () {
 
     var resetButton = document.createElement('button');
     resetButton.style.position = 'fixed'
-    resetButton.style.left ='10px'
-    resetButton.style.top ='110px'
+    resetButton.style.left = '10px'
+    resetButton.style.top = '110px'
     resetButton.style.zIndex = 1;
     resetButton.textContent = 'Reset Camera'
     resetButton.onclick = function () {
@@ -150,8 +150,8 @@ window.onload = function () {
 
     var sideButton = document.createElement('button');
     sideButton.style.position = 'fixed'
-    sideButton.style.left ='10px'
-    sideButton.style.top ='135px'
+    sideButton.style.left = '10px'
+    sideButton.style.top = '135px'
     sideButton.style.zIndex = 1;
     sideButton.textContent = 'side'
     sideButton.onclick = function () {
@@ -160,7 +160,7 @@ window.onload = function () {
             var child = obj.children[i];
             if (child.type === 'Mesh') {
                 child.geometry.computeBoundingBox();
-                controls.sideCamera((new itowns.THREE.Box3()).copy( child.geometry.boundingBox ).applyMatrix4( child.matrixWorld ));
+                controls.sideCamera((new itowns.THREE.Box3()).copy(child.geometry.boundingBox).applyMatrix4(child.matrixWorld));
             }
         }
     }
@@ -169,8 +169,8 @@ window.onload = function () {
 
     var overLookButton = document.createElement('button');
     overLookButton.style.position = 'fixed'
-    overLookButton.style.left ='10px'
-    overLookButton.style.top ='160px'
+    overLookButton.style.left = '10px'
+    overLookButton.style.top = '160px'
     overLookButton.style.zIndex = 1;
     overLookButton.textContent = 'overLook'
     overLookButton.onclick = function () {
@@ -179,12 +179,12 @@ window.onload = function () {
             var child = obj.children[i];
             if (child.type === 'Mesh') {
                 child.geometry.computeBoundingBox();
-                controls.overLookCamera((new itowns.THREE.Box3()).copy( child.geometry.boundingBox ).applyMatrix4( child.matrixWorld ));
+                controls.overLookCamera((new itowns.THREE.Box3()).copy(child.geometry.boundingBox).applyMatrix4(child.matrixWorld));
             }
         }
     }
 
     document.body.appendChild(overLookButton);
-    
+
     //injectChOWDER(view, viewerDiv);
 };

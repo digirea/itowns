@@ -198,8 +198,6 @@ class OrbitControls extends THREE.EventDispatcher {
 
         this._posX = coords.x;
         this._posY = coords.y;
-
-        console.log(this._eye);
     }
 
     pan(coords) {
@@ -237,7 +235,7 @@ class OrbitControls extends THREE.EventDispatcher {
         let delta = 0;
         const previousEyePositoin = (new THREE.Vector3()).copy(this._eye);
 
-        // ホイールの入力をdeltaに代入(反転)
+        // Substitute wheel input for delta (invert)
         if (event.wheelDelta !== undefined) {
             delta = -event.wheelDelta;
             // Firefox
@@ -245,44 +243,33 @@ class OrbitControls extends THREE.EventDispatcher {
             delta = event.detail;
         }
 
-        // カメラからターゲットへの方向を示すベクトルを得る
+        // Get a vector showing the direction from the camera to the target
         const targetToEye = (new THREE.Vector3()).copy(this._eye).sub(this._target);
         const targetToEyeLen = targetToEye.length();
         const normal1 = (new THREE.Vector3()).copy(targetToEye).normalize();
 
-        // スケールの尺度radを計算(ターゲットからカメラの距離をdelta*10で割る)
+        // Calculate the scale
         const rad = targetToEyeLen / delta * 10;
 
-        // カメラをradの値に基づき移動
+        // Move camera based on rad value
         this._eye = (new THREE.Vector3()).copy(this._eye).add(normal1.multiplyScalar(rad));
 
-        // 移動したあとのカメラからターゲットのベクトルをもとに距離を得る
+        // Get the distance from the camera after moving based on the target
         const movedTargetToEye = (new THREE.Vector3()).copy(this._eye).sub(this._target);
         const movedTargetToEyeLen = movedTargetToEye.length();
 
-
         if (movedTargetToEyeLen < this.centerToEyeLen && delta < 0) {
             this._eye = previousEyePositoin;
-            console.log('test');
         }
-        // if (movedTargetToEyeLen < this.centerToEyeLen && delta < 0) {
-        //     this._eye = preEyeDir.multiplyScalar(this.centerToEyeLen);
-        //     console.log('test');
-        // }
 
         this.applyCameraMatrix();
-
         this.view.notifyChange(this._camera3D);
-
-        // console.log(this._eye);
     }
 
-    onKeyDown(e) {
-        console.log('e');
+    onKeyDown() {
     }
 
-    onKeyUp(e) {
-        console.log('TODO');
+    onKeyUp() {
     }
 
     onTouchStart(event) {
@@ -299,7 +286,7 @@ class OrbitControls extends THREE.EventDispatcher {
     }
 
     /**
-     * ターゲットにカメラを注視する
+     * watch the target
      * @param {*} event 
      */
     fitCamera(event) {
@@ -319,7 +306,7 @@ class OrbitControls extends THREE.EventDispatcher {
     }
 
     /**
-     * カメラをリセットする
+     * camera reset
      */
     resetCamera() {
         this._eye = new THREE.Vector3().copy(this._cameraFirstPosition);
