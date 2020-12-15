@@ -117,7 +117,8 @@ class OrbitControls extends THREE.EventDispatcher {
     applyCameraMatrix() {
         this._camera3D.matrixAutoUpdate = false;
         this._camera3D.matrixWorldInverse.elements = createViewMatrix(this._eye, this._target, this._up);
-        this._camera3D.matrix.getInverse(this._camera3D.matrixWorldInverse);
+        // this._camera3D.matrix.getInverse(this._camera3D.matrixWorldInverse);
+        this._camera3D.matrix.copy(this._camera3D.matrixWorldInverse).invert();
 
         const d = new THREE.Vector3();
         const q = new THREE.Quaternion();
@@ -350,7 +351,7 @@ class OrbitControls extends THREE.EventDispatcher {
 
     getCenterToEyeLen(e) {
         const minPoint = e.min;
-        const centerPoint = e.getCenter();
+        const centerPoint = e.getCenter(new THREE.Vector3());
         this._centerPoint = centerPoint;
 
         const radiusVector = (new THREE.Vector3()).copy(minPoint).sub(centerPoint);

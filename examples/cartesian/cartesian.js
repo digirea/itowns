@@ -3,7 +3,7 @@
  * Copyright (c) 2016-2018 RIKEN Center for Computational Science. All rights reserved.
  */
 
-/// 地理院地図(Color)を3D球体で表示する
+/// Display Geographical Survey Map (Color) as a 3D sphere
 import { OBJLoader } from "./three/OBJLoader.js";
 
 function hideAllLayers(view) {
@@ -14,7 +14,7 @@ function hideAllLayers(view) {
 }
 
 
-// 地理院地図(Color)の読み込み
+// Loading Geographical Survey Map (Color)
 function loadGSIColor(view, callback) {
     itowns.Fetcher.json('./gsi.json').then(function (config) {
         var mapSource = new itowns.TMSSource(config.source);
@@ -73,10 +73,10 @@ window.onload = function () {
 
     var controls = new itowns.OrbitControls(view);
 
-    // objを出す
+    // view obj
     loadObjLayer(view);
 
-    // meshのバウンディングボックスを生成してコントローラに送る
+    // Generate a mesh bounding box and send it to the controller
     var button = document.createElement('button');
     button.style.position = 'fixed'
     button.style.left = '10px'
@@ -93,53 +93,12 @@ window.onload = function () {
             }
         }
     }
-    document.body.appendChild(button);
-
-    let para = document.createElement('div');
-    para.style.position = 'fixed'
-    para.style.left = '10px'
-    para.style.top = '35px'
-    para.style.zIndex = 1;
-    para.id = "para";
-    this.document.body.appendChild(para);
-
-    let xp = document.createElement('input');
-
-    xp.style.position = 'fixed'
-    xp.style.left = '10px'
-    xp.style.top = '35px'
-    xp.style.color = "red"
-    xp.style.zIndex = 1;
-    xp.id = "positionx";
-
-    para.appendChild(xp);
-
-    let yp = document.createElement('input');
-
-    yp.style.position = 'fixed'
-    yp.style.left = '10px'
-    yp.style.top = '60px'
-    yp.style.color = "red"
-    yp.style.zIndex = 1;
-    yp.id = "positiony";
-
-    para.appendChild(yp);
-
-    let zp = document.createElement('input');
-
-    zp.style.position = 'fixed'
-    zp.style.left = '10px'
-    zp.style.top = '85px'
-    zp.style.color = "red"
-    zp.style.zIndex = 1;
-    zp.id = "positionz";
-
-    para.appendChild(zp);
+    document.body.appendChild(button);    
 
     var resetButton = document.createElement('button');
     resetButton.style.position = 'fixed'
     resetButton.style.left = '10px'
-    resetButton.style.top = '110px'
+    resetButton.style.top = '35px'
     resetButton.style.zIndex = 1;
     resetButton.textContent = 'Reset Camera'
     resetButton.onclick = function () {
@@ -151,7 +110,7 @@ window.onload = function () {
     var sideButton = document.createElement('button');
     sideButton.style.position = 'fixed'
     sideButton.style.left = '10px'
-    sideButton.style.top = '135px'
+    sideButton.style.top = '60px'
     sideButton.style.zIndex = 1;
     sideButton.textContent = 'side'
     sideButton.onclick = function () {
@@ -170,7 +129,7 @@ window.onload = function () {
     var overLookButton = document.createElement('button');
     overLookButton.style.position = 'fixed'
     overLookButton.style.left = '10px'
-    overLookButton.style.top = '160px'
+    overLookButton.style.top = '85px'
     overLookButton.style.zIndex = 1;
     overLookButton.textContent = 'overLook'
     overLookButton.onclick = function () {
@@ -185,6 +144,47 @@ window.onload = function () {
     }
 
     document.body.appendChild(overLookButton);
+
+    // let para = document.createElement('div');
+    // para.style.position = 'fixed'
+    // para.style.left = '10px'
+    // para.style.top = '35px'
+    // para.style.zIndex = 1;
+    // para.id = "para";
+    // this.document.body.appendChild(para);
+
+    // let xp = document.createElement('input');
+
+    // xp.style.position = 'fixed'
+    // xp.style.left = '10px'
+    // xp.style.top = '35px'
+    // xp.style.color = "red"
+    // xp.style.zIndex = 1;
+    // xp.id = "positionx";
+
+    // para.appendChild(xp);
+
+    // let yp = document.createElement('input');
+
+    // yp.style.position = 'fixed'
+    // yp.style.left = '10px'
+    // yp.style.top = '60px'
+    // yp.style.color = "red"
+    // yp.style.zIndex = 1;
+    // yp.id = "positiony";
+
+    // para.appendChild(yp);
+
+    // let zp = document.createElement('input');
+
+    // zp.style.position = 'fixed'
+    // zp.style.left = '10px'
+    // zp.style.top = '85px'
+    // zp.style.color = "red"
+    // zp.style.zIndex = 1;
+    // zp.id = "positionz";
+
+    // para.appendChild(zp);
 
     //injectChOWDER(view, viewerDiv);
 };
