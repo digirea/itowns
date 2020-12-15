@@ -287,11 +287,10 @@ class OrbitControls extends THREE.EventDispatcher {
 
     /**
      * watch the target
-     * @param {*} event 
+     * @param {*} event
      */
     fitCamera(event) {
         const centerToEyeLen = this.getCenterToEyeLen(event);
-
         const centerPoint = new THREE.Vector3().copy(this._centerPoint);
 
         this._eye = (new THREE.Vector3(
