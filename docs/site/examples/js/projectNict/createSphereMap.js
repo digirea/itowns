@@ -228,6 +228,7 @@ class CreateSphereMap {
     viewerDiv.style.position = "absolute";
     viewerDiv.style.left = "calc(50% - 256px)";
     viewerDiv.style.top = "calc(50% - 256px)";
+
     view.camera.camera3D.updateProjectionMatrix();
     if (view.controls) {
       view.controls.enabled = true;
@@ -238,7 +239,7 @@ class CreateSphereMap {
   //裏で描画するviewの更新
   initBackGroundViewer(mainView, initBackGroundLayersFunc) {
     this.backGroundViewerDiv = document.getElementById("createSphereMapDom_backGroundViewerDiv");
-    this.backGroundView = new itowns.GlobeView(this.backGroundViewerDiv, placement, {
+    this.backGroundView = new itowns.GlobeView(this.backGroundViewerDiv, {}, {
       noControls: true,
     });
     setupLoadingScreen(this.backGroundViewerDiv, this.backGroundView);
@@ -251,8 +252,17 @@ class CreateSphereMap {
 
       let camera = this.backGroundView.camera.camera3D;
       camera.position.copy(position);
-      camera.up.copy(mainView.camera.camera3D.up);
       camera.lookAt(normPosition);
+
+      //upVecの計算
+      let targetPos = mainView.controls.getCameraTargetPosition()
+      let lookVec = new itowns.THREE.Vector3(targetPos.x, targetPos.y, targetPos.z);
+      lookVec.sub(position);
+      lookVec.normalize();
+      normPosition.multiplyScalar(-1.0);
+      normPosition.cross(lookVec);
+      lookVec.normalize();
+      camera.up.copy(lookVec);
 
       this.backGroundView.notifyChange(camera);
     }
@@ -333,7 +343,7 @@ class CreateSphereMap {
     this.setCreateSphereMapEvent(view, backGroundView);
   };
 
-
+  //サブビューの表示非表示イベント
   setToggleShowBackGroundView() {
     let toggleButton = document.getElementById("createSphereMapDom_ToggleShowBackGroundViewButton");
 
@@ -376,6 +386,7 @@ class CreateSphereMap {
     });
   };
 
+  //全天球カメラ画像のダウンロードイベント
   downloadSphereMap(mainView, view) {
     let upVecX = new itowns.THREE.Vector3(
       1, 0, 0
@@ -388,21 +399,25 @@ class CreateSphereMap {
       mainView.removeFrameRequester(itowns.MAIN_LOOP_EVENTS.AFTER_RENDER, this.updateBackgroundViewer);
     }
 
-    let timer;
+    this.timer;
+    this.timerUpdateFlag = true;
 
-    let firstTimerCallBack = () => {
-      if (this.animationCount === 0) {
-        console.log("+++++++++++++++++++++++ right");
-        //right
-        this.rotateAngle(view, upVecX, 180);
-        this.rotateAngle(view, upVecY, -180);
+    //初期回転
+    if (this.animationCount === 0) {
+      this.updateBackgroundViewer();
+      console.log("+++++++++++++++++++++++ right");
+      //right
+      this.rotateAngle(view, upVecX, 90);
+      this.rotateAngle(view, upVecY, -90);
 
-        this.animationCount++;
-      }
+      this.animationCount++;
     }
+
+    //6方向への回転のためのコールバック関数
     this.timerCallBack = () => {
-      clearTimeout(timer);
+      view.mainLoop.gfxEngine.renderer.clear();
       view.mainLoop.gfxEngine.renderer.render(view.scene, view.camera.camera3D);
+      view.mainLoop.gfxEngine.label2dRenderer.render(view.scene, view.camera.camera3D);
       this.saveImageAsDom(this.CUBE_MAP_IMAGE_TYPE[this.animationCount - 1], view.mainLoop.gfxEngine.renderer);
 
       if (this.animationCount === 6) {
@@ -420,30 +435,27 @@ class CreateSphereMap {
       }
 
       this.createCubeMapRotateEvent(this.animationCount, view);
-      let time = document.getElementById("createSphereMapDom_DelayTimeInput");
-      timer = setTimeout(this.timerCallBack, Number(time.value) * 1000);
       this.animationCount++;
     }
-
-    if (view.mainLoop.scheduler.commandsWaitingExecutionCount() === 0
-      && view.mainLoop.renderingState === 0) {
-      firstTimerCallBack();
-    }
-    else {
-      let time = document.getElementById("createSphereMapDom_DelayTimeInput");
-      timer = setTimeout(firstTimerCallBack, Number(time.value) * 1000);
-    }
+    //タイル読み込み状況の判定のために毎ループ呼ばれるコールバック関数
     this.downloadSphereMap_callback = () => {
       // console.log("updateend-----------------------");
       // console.log("commandsWaitingExecutionCount" + view.mainLoop.scheduler.commandsWaitingExecutionCount());
       // console.log("renderingState:" + view.mainLoop.renderingState);
 
-      if (view.mainLoop.scheduler.commandsWaitingExecutionCount() === 0
-        && view.mainLoop.renderingState === 0
-      ) {
-        this.timerCallBack();
+      if (this.timerUpdateFlag) {
+        clearTimeout(this.timer);
+        if (view.mainLoop.scheduler.commandsWaitingExecutionCount() === 0) {
+          //タイルが来ない場合のエラー処理
+          if (view.mainLoop.renderingState !== 0
+          ) {
+            this.timerUpdateFlag = false;
+          }
+          this.updateTimer();
+        }
       }
     }
+    //コールバックの登録
     view.addFrameRequester(itowns.MAIN_LOOP_EVENTS.UPDATE_END, this.downloadSphereMap_callback);
   }
 
@@ -457,39 +469,48 @@ class CreateSphereMap {
     if (animationCount === 0) {
       console.log("+++++++++++++++++++++++ right");
       //right
-      this.rotateAngle(view, upVecX, 180);
-      this.rotateAngle(view, upVecY, -180);
+      this.rotateAngle(view, upVecX, 90);
+      this.rotateAngle(view, upVecY, -90);
     }
     else if (animationCount === 1) {
       console.log("+++++++++++++++++++++++ left");
       //left
-      this.rotateAngle(view, upVecY, 360);
+      this.rotateAngle(view, upVecY, 180);
     }
     else if (this.animationCount === 2) {
       console.log("+++++++++++++++++++++++ top");
       //top
-      this.rotateAngle(view, upVecY, -180);
-      this.rotateAngle(view, upVecX, 180);
+      this.rotateAngle(view, upVecY, -90);
+      this.rotateAngle(view, upVecX, 90);
     }
     else if (this.animationCount === 3) {
       console.log("+++++++++++++++++++++++ down");
       //down
-      this.rotateAngle(view, upVecX, -360);
+      this.rotateAngle(view, upVecX, -180);
     }
     else if (this.animationCount === 4) {
       console.log("+++++++++++++++++++++++ front");
       //front
-      this.rotateAngle(view, upVecX, 180);
+      this.rotateAngle(view, upVecX, 90);
     }
     else if (this.animationCount === 5) {
       console.log("+++++++++++++++++++++++ back");
       //back
-      this.rotateAngle(view, upVecY, 360);
+      this.rotateAngle(view, upVecY, 180);
     }
+  }
+
+  updateTimer() {
+    let time = document.getElementById("createSphereMapDom_DelayTimeInput");
+    this.timer = setTimeout(() => {
+      this.timerUpdateFlag = true;
+      this.timerCallBack()
+    }, Number(time.value) * 1000);
   }
 
   //DOMに画像を保存
   saveImageAsDom(type, renderer) {
+    console.log(type);
     let dom = document.getElementById("createSphereMapDom_" + type);
 
     dom.href = renderer.domElement.toDataURL("image/png");
@@ -504,7 +525,7 @@ class CreateSphereMap {
 
   //アングルを上ベクトルを軸にして回転する
   rotateAngle(view, upVec, angle) {
-    let radian = angle * Math.PI / 360;
+    let radian = angle * 2 * Math.PI / 360;
     let q = new itowns.THREE.Quaternion();
     //回転軸と角度からクォータニオンを計算
     q.setFromAxisAngle(upVec, radian);
