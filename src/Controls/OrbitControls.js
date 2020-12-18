@@ -188,7 +188,7 @@ class OrbitControls extends THREE.EventDispatcher {
 
         const dot = movedNormal.dot(cross);
 
-        if (dot < 0) {
+        if (dot <= 0.00001) {
             this._eye = eyeVectorTemp;
         }
 
