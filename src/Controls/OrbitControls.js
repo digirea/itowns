@@ -165,10 +165,10 @@ class OrbitControls extends THREE.EventDispatcher {
 
     rotate(coords) {
         const gfx = this.view.mainLoop.gfxEngine;
-        const eyeVectorTemp = (new THREE.Vector3()).copy(this._eye);
 
         const moveV = (new THREE.Vector3()).copy(this._centerPoint).negate();
         this._eye.add(moveV);
+        const eyeVectorTemp = (new THREE.Vector3()).copy(this._eye);
 
         const rotZ = -2 * Math.PI * (coords.x - this._posX) / gfx.width * 0.5;
         const rotY = -2 * Math.PI * (coords.y - this._posY) / gfx.height * 0.5;
@@ -195,7 +195,7 @@ class OrbitControls extends THREE.EventDispatcher {
         quatZ.setFromAxisAngle(this.axisZ, rotZ);
         this._eye.applyQuaternion(quatZ);
 
-        // this._eye.add(this._centerPoint);
+        this._eye.add(this._centerPoint);
 
         this.applyCameraMatrix();
         this._posX = coords.x;
