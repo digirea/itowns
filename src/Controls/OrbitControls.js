@@ -181,19 +181,22 @@ class OrbitControls extends THREE.EventDispatcher {
         const quatZ = new THREE.Quaternion();
         const quatY = new THREE.Quaternion();
 
-        quatZ.setFromAxisAngle(this.axisZ, rotZ);
         quatY.setFromAxisAngle(cross, rotY);
-        this._eye.applyQuaternion(quatY.multiply(quatZ));
+        this._eye.applyQuaternion(quatY);
+        const movedEyeVector = (new THREE.Vector3()).copy(this._target).sub(this._eye);
+        const movedNormal = (new THREE.Vector3()).copy(movedEyeVector).cross(this.axisZ).normalize();
 
-        this._eye.add(this._centerPoint);
+        const dot = movedNormal.dot(cross);
 
-        const eyeVector = (new THREE.Vector3()).copy(this._target).sub(this._eye);
-        const theta = (eyeVector.normalize()).angleTo(this.axisZ);
-
-        if (theta < 0.1 || theta > Math.PI - 0.1) {
-            this._eye = (new THREE.Vector3()).copy(eyeVectorTemp);
-            this._eye.reflect(cross);
+        if (dot < 0) {
+            this._eye = eyeVectorTemp;
         }
+
+        quatZ.setFromAxisAngle(this.axisZ, rotZ);
+        this._eye.applyQuaternion(quatZ);
+
+        // this._eye.add(this._centerPoint);
+
         this.applyCameraMatrix();
         this._posX = coords.x;
         this._posY = coords.y;
