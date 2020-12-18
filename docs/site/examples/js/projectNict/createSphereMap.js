@@ -10,11 +10,11 @@ class CreateSphereMap {
 
     this.GUITools = GUITools;
 
-    this.view = view;
+    this.mainView = view;
 
     //キューブマップのスクショを撮る用のviewの初期化
-    this.initBackGroundViewer(this.view, initBackGroundLayersFunc);
-    this.initView(this.backGroundView, this.view.camera.camera3D.near, view.camera.camera3D.far, initSize, initSize);
+    this.initBackGroundViewer(this.mainView, initBackGroundLayersFunc);
+    this.initView(this.backGroundView, this.mainView.camera.camera3D.near, view.camera.camera3D.far, initSize, initSize);
 
     //キューブマップ作製用の変数
     this.CUBE_MAP_IMAGE_TYPE = [
@@ -28,7 +28,7 @@ class CreateSphereMap {
     this.animationCount = 0;
 
     //イベントの登録
-    this.setEvent(this.view, this.backGroundView);
+    this.setEvent(this.mainView, this.backGroundView);
 
     //スフィアマップレンダラの初期化
     this.initSphereMapRenderer();
@@ -113,15 +113,6 @@ class CreateSphereMap {
           createSphereMapDom_DelayTimeButton.appendChild(createSphereMapDom_DelayTimeInput)
         }
         createSphereMapDom_buttonArea.appendChild(createSphereMapDom_DelayTimeButton)
-
-        let createSphereMapDom_CameraTest = document.createElement("a");
-        createSphereMapDom_CameraTest.id = "createSphereMapDom_CameraTest";
-        createSphereMapDom_CameraTest.classList.add("button");
-        createSphereMapDom_CameraTest.innerHTML = "カメラ回転Test"
-        {
-
-        }
-        createSphereMapDom_buttonArea.appendChild(createSphereMapDom_CameraTest)
       }
       createSphereMapDom.appendChild(createSphereMapDom_buttonArea)
 
@@ -388,6 +379,14 @@ class CreateSphereMap {
 
   //全天球カメラ画像のダウンロードイベント
   downloadSphereMap(mainView, view) {
+    //イベントの無効化
+    let createSphereMapButton = document.getElementById("createSphereMapDom_CreateSphereMapButton");
+    let imageSizeButton = document.getElementById("createSphereMapDom_SetCubeMapImageSizeButton");
+    let timeButton = document.getElementById("createSphereMapDom_DelayTimeButton");
+    imageSizeButton.style.pointerEvents = "none";
+    timeButton.style.pointerEvents = "none";
+    createSphereMapButton.style.pointerEvents = "none";
+
     let upVecX = new itowns.THREE.Vector3(
       1, 0, 0
     );
@@ -431,6 +430,10 @@ class CreateSphereMap {
           mainView.addFrameRequester(itowns.MAIN_LOOP_EVENTS.AFTER_RENDER, this.updateBackgroundViewer);
         }
         view.removeFrameRequester(itowns.MAIN_LOOP_EVENTS.UPDATE_END, this.downloadSphereMap_callback);
+        //イベントの有効化
+        imageSizeButton.style.pointerEvents = "auto";
+        timeButton.style.pointerEvents = "auto";
+        createSphereMapButton.style.pointerEvents = "auto";
         return;
       }
 
@@ -548,7 +551,7 @@ class CreateSphereMap {
 
     this.SM_renderer = new itowns.THREE.WebGLRenderer();
     //スクリーンサイズのセット
-    let sphereMapWidth = this.view.camera.width * 4;
+    let sphereMapWidth = this.mainView.camera.width * 4;
     let sphereMapHeight = sphereMapWidth / 2;
     this.SM_renderer.setSize(sphereMapWidth, sphereMapHeight);
     // 背景色の設定
