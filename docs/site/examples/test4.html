@@ -152,26 +152,31 @@
         window.addEventListener('resize', updateScaleWidget);
         // debug.createTileDebugUI(menuGlobe.gui, view);
 
-        let initBackGroundLayers = function (backGroundView) {
-
-            itowns.Fetcher.json('./layers/JSONLayers/Ortho.json').then(function _(config) {
-                config.source = new itowns.WMTSSource(config.source);
-                var layer = new itowns.ColorLayer('Ortho', config);
-                backGroundView.addLayer(layer)
+        let initBackGroundLayers = function (backGroundView, backGroundViewerDiv) {
+            backGroundView = new itowns.GlobeView(backGroundViewerDiv, {}, {
+                noControls: true,
             });
-            // itowns.Fetcher.json('./layers/JSONLayers/OPENSM.json').then(function _(config) {
-            //     config.source = new itowns.TMSSource(config.source);
-            //     var layer = new itowns.ColorLayer('OPENSM', config);
+            setupLoadingScreen(backGroundViewerDiv, backGroundView);
+            
+
+            // itowns.Fetcher.json('./layers/JSONLayers/Ortho.json').then(function _(config) {
+            //     config.source = new itowns.WMTSSource(config.source);
+            //     var layer = new itowns.ColorLayer('Ortho', config);
             //     backGroundView.addLayer(layer)
             // });
-            function addElevationLayer(config) {
-                config.source = new itowns.WMTSSource(config.source);
-                var layer = new itowns.ElevationLayer(config.id, config);
-                backGroundView.addLayer(layer)
-            }
-            itowns.Fetcher.json('./layers/JSONLayers/WORLD_DTM.json').then(addElevationLayer);
-            itowns.Fetcher.json('./layers/JSONLayers/IGN_MNT_HIGHRES.json').then(addElevationLayer);
-
+            // // itowns.Fetcher.json('./layers/JSONLayers/OPENSM.json').then(function _(config) {
+            // //     config.source = new itowns.TMSSource(config.source);
+            // //     var layer = new itowns.ColorLayer('OPENSM', config);
+            // //     backGroundView.addLayer(layer)
+            // // });
+            // function addElevationLayer(config) {
+            //     config.source = new itowns.WMTSSource(config.source);
+            //     var layer = new itowns.ElevationLayer(config.id, config);
+            //     backGroundView.addLayer(layer)
+            // }
+            // itowns.Fetcher.json('./layers/JSONLayers/WORLD_DTM.json').then(addElevationLayer);
+            // itowns.Fetcher.json('./layers/JSONLayers/IGN_MNT_HIGHRES.json').then(addElevationLayer);
+            return backGroundView;
         }
         let createSphereMapInstance = new CreateSphereMap(view, initBackGroundLayers, menuGlobe);
     </script>

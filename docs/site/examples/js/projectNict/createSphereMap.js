@@ -72,14 +72,31 @@ class CreateSphereMap {
         {
 
         }
-        createSphereMapDom_buttonArea.appendChild(createSphereMapDom_ToggleShowBackGroundViewButton)
+        createSphereMapDom_buttonArea.appendChild(createSphereMapDom_ToggleShowBackGroundViewButton);
+
+        let createSphereMapDom_ToggleBackGroundViewAngleButton = document.createElement("a");
+        createSphereMapDom_ToggleBackGroundViewAngleButton.id = "createSphereMapDom_ToggleBackGroundViewAngleButton";
+        createSphereMapDom_ToggleBackGroundViewAngleButton.classList.add("button");
+        createSphereMapDom_ToggleBackGroundViewAngleButton.innerHTML = "サブビュー視点　前/下"
+        {
+
+        }
+        createSphereMapDom_buttonArea.appendChild(createSphereMapDom_ToggleBackGroundViewAngleButton)
 
         let createSphereMapDom_CreateSphereMapButton = document.createElement("a");
         createSphereMapDom_CreateSphereMapButton.id = "createSphereMapDom_CreateSphereMapButton";
         createSphereMapDom_CreateSphereMapButton.classList.add("button");
         createSphereMapDom_CreateSphereMapButton.innerHTML = "スフィアマップ作製"
         {
+          let createSphereMapDom_CreateSphereMapProgress = document.createElement("progress");
+          createSphereMapDom_CreateSphereMapProgress.id = "createSphereMapDom_CreateSphereMapProgress";
+          createSphereMapDom_CreateSphereMapProgress.value = "0";
+          createSphereMapDom_CreateSphereMapProgress.max = "6";
+          createSphereMapDom_CreateSphereMapProgress.classList.add("progressBar")
+          {
 
+          }
+          createSphereMapDom_CreateSphereMapButton.appendChild(createSphereMapDom_CreateSphereMapProgress);
         }
         createSphereMapDom_buttonArea.appendChild(createSphereMapDom_CreateSphereMapButton)
 
@@ -230,13 +247,24 @@ class CreateSphereMap {
   //裏で描画するviewの更新
   initBackGroundViewer(mainView, initBackGroundLayersFunc) {
     this.backGroundViewerDiv = document.getElementById("createSphereMapDom_backGroundViewerDiv");
-    this.backGroundView = new itowns.GlobeView(this.backGroundViewerDiv, {}, {
-      noControls: true,
-    });
-    setupLoadingScreen(this.backGroundViewerDiv, this.backGroundView);
 
+    this.backGroundView = initBackGroundLayersFunc(this.backGroundView, this.backGroundViewerDiv);
+    console.log(mainView)
+    this.syncGUITools(mainView)
+    this.syncCameraParam(mainView);
+
+
+
+    this.backGroundView.notifyChange();
+  }
+
+  syncCameraParam(mainView) {
     //mainViewの描画後の同期
     this.updateBackgroundViewer = () => {
+      this.backGroundView.referenceCrs = mainView.referenceCrs;
+      this.backGroundView.notifyChange(this.backGroundView.referenceCrs);
+
+
       let position = mainView.camera.camera3D.position;
       let normPosition = new itowns.THREE.Vector3(position.x, position.y, position.z);
       normPosition.normalize();
@@ -255,24 +283,48 @@ class CreateSphereMap {
       lookVec.normalize();
       camera.up.copy(lookVec);
 
+      let upVecX = new itowns.THREE.Vector3(
+        1, 0, 0
+      );
+      if (this.backGroundViewAngleFlag === "front") {
+        this.rotateAngle(this.backGroundView, upVecX, 90);
+      }
+
       this.backGroundView.notifyChange(camera);
     }
     mainView.addFrameRequester(itowns.MAIN_LOOP_EVENTS.AFTER_RENDER, this.updateBackgroundViewer);
-
-    initBackGroundLayersFunc(this.backGroundView);
-
-    this.syncGUITools(mainView)
-
-    this.backGroundView.notifyChange();
   }
 
   syncGUITools(mainView) {
     let layers = this.backGroundView.getLayers();
     let mainLayers = mainView.getLayers();
 
+
+    mainView.addEventListener(itowns.VIEW_EVENTS.LAYER_ADDED, () => {
+      layers = this.backGroundView.getLayers();
+      mainLayers = mainView.getLayers();
+      console.log(mainLayers);
+      console.log(layers);
+
+      let flag = true;
+      for (let i = 0; i < mainLayers.length; i++) {
+        for (let j = 0; j < layers.length; j++) {
+
+          if (mainLayers[i].id === layers[j].id) {
+            flag = false;
+          }
+        }
+        if (flag) {
+          this.backGroundView.addLayer(mainLayers[i]);
+        }
+        flag = true;
+      }
+    });
+
     this.backGroundView.addEventListener(itowns.VIEW_EVENTS.LAYER_ADDED, () => {
       layers = this.backGroundView.getLayers();
       mainLayers = mainView.getLayers();
+
 
       if (this.GUITools) {
         for (let a in this.GUITools.gui.__folders) {
@@ -284,6 +336,7 @@ class CreateSphereMap {
                     this.GUITools.gui.__folders[a].__folders[i].__controllers[k].onChange((value) => {
                       layers = this.backGroundView.getLayers();
                       mainLayers = mainView.getLayers();
+                      console.log(mainLayers);
 
                       let paramName = this.GUITools.gui.__folders[a].__folders[i].__controllers[k].property;
                       mainLayers[j][paramName] = value;
@@ -330,6 +383,7 @@ class CreateSphereMap {
   /////イベントの登録/////
   setEvent(view, backGroundView) {
     this.setToggleShowBackGroundView();
+    this.setToggleBackGroundViewAngle();
     this.setSizeChangeEvent(view, backGroundView);
     this.setCreateSphereMapEvent(view, backGroundView);
   };
@@ -350,7 +404,21 @@ class CreateSphereMap {
       this.showBackGroundViewFlag = false;
     })
   };
+  setToggleBackGroundViewAngle() {
+    let toggleButton = document.getElementById("createSphereMapDom_ToggleBackGroundViewAngleButton");
+    this.backGroundViewAngleFlag = "bottom";
+    toggleButton.addEventListener("click", () => {
+      if (this.backGroundViewAngleFlag === "bottom") {
+        this.backGroundViewAngleFlag = "front";
+        this.updateBackgroundViewer();
+      }
+      else {
+        this.backGroundViewAngleFlag = "bottom";
+        this.updateBackgroundViewer();
+      }
+    });
 
+  }
   //画像サイズ変更時のイベント
   setSizeChangeEvent(view, backGroundView) {
     let sizeInput = document.getElementById("createSphereMapDom_CubeMapImageSizeInput");
@@ -395,18 +463,22 @@ class CreateSphereMap {
     );
     if (mainView.controls) {
       mainView.controls.enabled = false;
-      mainView.removeFrameRequester(itowns.MAIN_LOOP_EVENTS.AFTER_RENDER, this.updateBackgroundViewer);
     }
+    mainView.removeFrameRequester(itowns.MAIN_LOOP_EVENTS.AFTER_RENDER, this.updateBackgroundViewer);
 
     this.timer;
     this.timerUpdateFlag = true;
 
     //初期回転
     if (this.animationCount === 0) {
-      this.updateBackgroundViewer();
+      let progressDom = document.getElementById("createSphereMapDom_CreateSphereMapProgress");
+      progressDom.value = "0";
+      // this.updateBackgroundViewer();
       console.log("+++++++++++++++++++++++ right");
       //right
-      this.rotateAngle(view, upVecX, 90);
+      if (this.backGroundViewAngleFlag === "bottom") {
+        this.rotateAngle(view, upVecX, 90);
+      }
       this.rotateAngle(view, upVecY, -90);
 
       this.animationCount++;
@@ -419,21 +491,28 @@ class CreateSphereMap {
       view.mainLoop.gfxEngine.label2dRenderer.render(view.scene, view.camera.camera3D);
       this.saveImageAsDom(this.CUBE_MAP_IMAGE_TYPE[this.animationCount - 1], view.mainLoop.gfxEngine.renderer);
 
+
+      let progressDom = document.getElementById("createSphereMapDom_CreateSphereMapProgress");
+      progressDom.value = (Number(progressDom.value) + 1).toString();
       if (this.animationCount === 6) {
         console.log("cube map complete");
-        this.updateBackgroundViewer();
-
         this.animationCount = 0;
         this.createSphereMap();
+
         if (mainView.controls) {
           mainView.controls.enabled = true;
-          mainView.addFrameRequester(itowns.MAIN_LOOP_EVENTS.AFTER_RENDER, this.updateBackgroundViewer);
         }
+
+        this.updateBackgroundViewer()
+        mainView.addFrameRequester(itowns.MAIN_LOOP_EVENTS.AFTER_RENDER, this.updateBackgroundViewer);
+
         view.removeFrameRequester(itowns.MAIN_LOOP_EVENTS.UPDATE_END, this.downloadSphereMap_callback);
+
         //イベントの有効化
         imageSizeButton.style.pointerEvents = "auto";
         timeButton.style.pointerEvents = "auto";
         createSphereMapButton.style.pointerEvents = "auto";
+
         return;
       }
 
