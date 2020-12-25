@@ -1,20 +1,18 @@
 
 
 class CreateSphereMap {
-  constructor(view, initBackGroundLayersFunc, GUITools = null) {
+  constructor(view, GUITools = null, initBackGroundLayers = null) {
     //domの作成
     this.createDom();
 
-    //itownsのviewerの初期化
-    let initSize = 512
 
     this.GUITools = GUITools;
 
     this.mainView = view;
 
+
     //キューブマップのスクショを撮る用のviewの初期化
-    this.initBackGroundViewer(this.mainView, initBackGroundLayersFunc);
-    this.initView(this.backGroundView, this.mainView.camera.camera3D.near, view.camera.camera3D.far, initSize, initSize);
+    this.initBackGroundViewer(this.mainView, initBackGroundLayers);
 
     //キューブマップ作製用の変数
     this.CUBE_MAP_IMAGE_TYPE = [
@@ -206,7 +204,9 @@ class CreateSphereMap {
     body.appendChild(createSphereMapDom);
   }
 
-  initView(view, near, far, height, width = 0) {
+
+  //サブビューの更新
+  initBackGroundCanvas(view, near, far, height, width) {
     //viewの更新
     if (view.controls) {
       view.controls.enabled = false;
@@ -229,14 +229,18 @@ class CreateSphereMap {
     //canvasの更新
     let viewerDiv = view.mainLoop.gfxEngine.renderer.domElement
     viewerDiv.height = height;
-    viewerDiv.width = height;
+    viewerDiv.width = width;
     viewerDiv.style.height = "512px";
     viewerDiv.style.width = "512px";
+    // viewerDiv.style.height = height.toString()+"px";
+    // viewerDiv.style.width = width.toString()+"px";
 
     viewerDiv.style.position = "absolute";
     viewerDiv.style.left = "calc(50% - 256px)";
     viewerDiv.style.top = "calc(50% - 256px)";
 
+    // viewerDiv.style.left = "calc(50% - "+(height/2).toString()+"px)";
+    // viewerDiv.style.top = "calc(50% - "+(width/2).toString()+"px)";
     view.camera.camera3D.updateProjectionMatrix();
     if (view.controls) {
       view.controls.enabled = true;
@@ -244,36 +248,40 @@ class CreateSphereMap {
     view.notifyChange(view.camera);
   }
 
-  //裏で描画するviewの更新
-  initBackGroundViewer(mainView, initBackGroundLayersFunc) {
+  //サブビューの更新
+  initBackGroundViewer(mainView, initBackGroundLayers) {
     this.backGroundViewerDiv = document.getElementById("createSphereMapDom_backGroundViewerDiv");
 
-    this.backGroundView = initBackGroundLayersFunc(this.backGroundView, this.backGroundViewerDiv);
-    console.log(mainView)
+    this.syncLayers(mainView, initBackGroundLayers);
+
     this.syncGUITools(mainView)
+
     this.syncCameraParam(mainView);
 
-
-
     this.backGroundView.notifyChange();
+
+    let initSize = 512
+    this.initBackGroundCanvas(this.backGroundView, mainView.camera.camera3D.near, mainView.camera.camera3D.far, initSize, initSize);
   }
 
   syncCameraParam(mainView) {
     //mainViewの描画後の同期
     this.updateBackgroundViewer = () => {
+      //EPSGコードの同期
       this.backGroundView.referenceCrs = mainView.referenceCrs;
       this.backGroundView.notifyChange(this.backGroundView.referenceCrs);
 
-
+      //メインビューのカメラ情報の取得
       let position = mainView.camera.camera3D.position;
       let normPosition = new itowns.THREE.Vector3(position.x, position.y, position.z);
       normPosition.normalize();
 
+      //カメラの位置の同期及び、焦点を球の中心に合わせる
       let camera = this.backGroundView.camera.camera3D;
       camera.position.copy(position);
       camera.lookAt(normPosition);
 
-      //upVecの計算
+      //上方向のベクトルの計算
       let targetPos = mainView.controls.getCameraTargetPosition()
       let lookVec = new itowns.THREE.Vector3(targetPos.x, targetPos.y, targetPos.z);
       lookVec.sub(position);
@@ -283,6 +291,7 @@ class CreateSphereMap {
       lookVec.normalize();
       camera.up.copy(lookVec);
 
+      //サブビュー始点が前の場合
       let upVecX = new itowns.THREE.Vector3(
         1, 0, 0
       );
@@ -290,53 +299,82 @@ class CreateSphereMap {
         this.rotateAngle(this.backGroundView, upVecX, 90);
       }
 
+      //変更を適用する
       this.backGroundView.notifyChange(camera);
     }
+    //AFTER_RENDERイベントのコールバック関数として登録
     mainView.addFrameRequester(itowns.MAIN_LOOP_EVENTS.AFTER_RENDER, this.updateBackgroundViewer);
   }
 
-  syncGUITools(mainView) {
+  syncLayers(mainView, initBackGroundLayers) {
+    //ビューの準備
+    if (mainView instanceof itowns.GlobeView) {
+      console.log("globe")
+      this.backGroundView = new itowns.GlobeView(this.backGroundViewerDiv, {}, {
+        noControls: true,
+      });
+      setupLoadingScreen(this.backGroundViewerDiv, this.backGroundView);
+    }
+    else if (mainView instanceof itowns.PlanarView) {
+      this.backGroundView = new itowns.PlanarView(this.backGroundViewerDiv, {}, {
+        noControls: true,
+      });
+      setupLoadingScreen(this.backGroundViewerDiv, this.backGroundView);
+    }
     let layers = this.backGroundView.getLayers();
     let mainLayers = mainView.getLayers();
 
-
+    //メインビューにレイヤーが追加された際のコールバック関数を登録
     mainView.addEventListener(itowns.VIEW_EVENTS.LAYER_ADDED, () => {
+      //各ビューのレイヤーを取得
       layers = this.backGroundView.getLayers();
       mainLayers = mainView.getLayers();
-      console.log(mainLayers);
-      console.log(layers);
 
       let flag = true;
+      //各レイヤーを探索し、メインビューに存在し、サブビューに存在しないレイヤーを追加する
+      //この時に追加するのは、 ColorレイヤーおよびElevationレイヤーのみ
       for (let i = 0; i < mainLayers.length; i++) {
         for (let j = 0; j < layers.length; j++) {
-
           if (mainLayers[i].id === layers[j].id) {
             flag = false;
           }
         }
         if (flag) {
-          this.backGroundView.addLayer(mainLayers[i]);
+          if (mainLayers[i] instanceof itowns.ColorLayer || mainLayers[i] instanceof itowns.ElevationLayer) {
+            this.backGroundView.addLayer(mainLayers[i]);
+          }
         }
         flag = true;
       }
     });
 
+    //Colorレイヤー及びElevationレイヤー以外のレイヤーの追加
+    if (initBackGroundLayers) {
+      initBackGroundLayers(this.backGroundView);
+    }
+  }
+
+  syncGUITools(mainView) {
+
     this.backGroundView.addEventListener(itowns.VIEW_EVENTS.LAYER_ADDED, () => {
-      layers = this.backGroundView.getLayers();
-      mainLayers = mainView.getLayers();
+      let layers = this.backGroundView.getLayers();
+      let mainLayers = mainView.getLayers();
 
 
       if (this.GUITools) {
+        //GUIの種類を探索
         for (let a in this.GUITools.gui.__folders) {
+          //ColorレイヤーもしくはElevationレイヤーのGUIの同期
           if (a === "Color Layers" || a === "Elevation Layers") {
+            //レイヤーのデータの名前を探索
             for (let i in this.GUITools.gui.__folders[a].__folders) {
               for (let j in layers) {
                 if (layers[j].id === i) {
+                  //GUIの各パラメータの改変時の処理を登録
                   for (let k in this.GUITools.gui.__folders[a].__folders[i].__controllers) {
                     this.GUITools.gui.__folders[a].__folders[i].__controllers[k].onChange((value) => {
                       layers = this.backGroundView.getLayers();
                       mainLayers = mainView.getLayers();
-                      console.log(mainLayers);
 
                       let paramName = this.GUITools.gui.__folders[a].__folders[i].__controllers[k].property;
                       mainLayers[j][paramName] = value;
@@ -349,10 +387,13 @@ class CreateSphereMap {
               }
             }
           }
+          //デバッグツールの同期は行わない。（要調査）
           else if (a === "Debug Tools") {
             console.log("Debug Tools");
           }
+          //Colorレイヤー及びElevationレイヤーの以外のGUIの同期
           else {
+            //GUIの各パラメータの改変時の処理を登録
             for (let k in this.GUITools.gui.__folders[a].__controllers) {
               this.GUITools.gui.__folders[a].__controllers[k].onChange((value) => {
                 layers = this.backGroundView.getLayers();
@@ -396,23 +437,28 @@ class CreateSphereMap {
     toggleButton.addEventListener("click", () => {
       let backGroundViewDiv = document.getElementById("createSphereMapDom_backGroundViewerDiv");
       if (!this.showBackGroundViewFlag) {
+        console.log("subViewOn");
         backGroundViewDiv.style.opacity = "1";
         this.showBackGroundViewFlag = true;
         return;
       }
+      console.log("subViewOff");
       backGroundViewDiv.style.opacity = "0.00000000001";
       this.showBackGroundViewFlag = false;
     })
   };
+
   setToggleBackGroundViewAngle() {
     let toggleButton = document.getElementById("createSphereMapDom_ToggleBackGroundViewAngleButton");
     this.backGroundViewAngleFlag = "bottom";
     toggleButton.addEventListener("click", () => {
       if (this.backGroundViewAngleFlag === "bottom") {
+        console.log("subViewFront");
         this.backGroundViewAngleFlag = "front";
         this.updateBackgroundViewer();
       }
       else {
+        console.log("subViewBottom");
         this.backGroundViewAngleFlag = "bottom";
         this.updateBackgroundViewer();
       }
@@ -432,7 +478,7 @@ class CreateSphereMap {
         sizeInput.value = 1;
       }
 
-      this.initView(backGroundView, backGroundView.camera.camera3D.near, backGroundView.camera.camera3D.far, sizeInput.value, sizeInput.value);
+      this.initBackGroundCanvas(backGroundView, backGroundView.camera.camera3D.near, backGroundView.camera.camera3D.far, sizeInput.value, sizeInput.value);
     };
   }
 
@@ -473,7 +519,6 @@ class CreateSphereMap {
     if (this.animationCount === 0) {
       let progressDom = document.getElementById("createSphereMapDom_CreateSphereMapProgress");
       progressDom.value = "0";
-      // this.updateBackgroundViewer();
       console.log("+++++++++++++++++++++++ right");
       //right
       if (this.backGroundViewAngleFlag === "bottom") {
@@ -488,7 +533,7 @@ class CreateSphereMap {
     this.timerCallBack = () => {
       view.mainLoop.gfxEngine.renderer.clear();
       view.mainLoop.gfxEngine.renderer.render(view.scene, view.camera.camera3D);
-      view.mainLoop.gfxEngine.label2dRenderer.render(view.scene, view.camera.camera3D);
+      // view.mainLoop.gfxEngine.label2dRenderer.render(view.scene, view.camera.camera3D);
       this.saveImageAsDom(this.CUBE_MAP_IMAGE_TYPE[this.animationCount - 1], view.mainLoop.gfxEngine.renderer);
 
 
@@ -519,25 +564,27 @@ class CreateSphereMap {
       this.createCubeMapRotateEvent(this.animationCount, view);
       this.animationCount++;
     }
+
     //タイル読み込み状況の判定のために毎ループ呼ばれるコールバック関数
     this.downloadSphereMap_callback = () => {
-      // console.log("updateend-----------------------");
-      // console.log("commandsWaitingExecutionCount" + view.mainLoop.scheduler.commandsWaitingExecutionCount());
-      // console.log("renderingState:" + view.mainLoop.renderingState);
 
       if (this.timerUpdateFlag) {
+        //タイマーをリセット
         clearTimeout(this.timer);
+        //タスクが0ならタイマーをセットする
         if (view.mainLoop.scheduler.commandsWaitingExecutionCount() === 0) {
-          //タイルが来ない場合のエラー処理
+          //レンダリング待ちであれば、タイマーのリセットを行わない
           if (view.mainLoop.renderingState !== 0
           ) {
             this.timerUpdateFlag = false;
           }
+          //タイマーのセット
           this.updateTimer();
         }
       }
+
     }
-    //コールバックの登録
+    //UPDATE_ENDイベント時に処理を行う
     view.addFrameRequester(itowns.MAIN_LOOP_EVENTS.UPDATE_END, this.downloadSphereMap_callback);
   }
 
@@ -592,7 +639,6 @@ class CreateSphereMap {
 
   //DOMに画像を保存
   saveImageAsDom(type, renderer) {
-    console.log(type);
     let dom = document.getElementById("createSphereMapDom_" + type);
 
     dom.href = renderer.domElement.toDataURL("image/png");

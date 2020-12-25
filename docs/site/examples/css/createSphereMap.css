@@ -54,6 +54,10 @@
     background-color: white;
     border-radius: 2px;
 }
+
+.progressBar{
+    width: 100%;
+}
 .inputNum{
     width: 80px;
 }

@@ -90,7 +90,6 @@
         }
         window.view = view;
 
-        console.log(view);
         itowns.View.prototype.addLayer.call(view, potreeLayer).then(onLayerReady);
 
         itowns.Fetcher.json('./layers/JSONLayers/IGN_MNT_HIGHRES.json').then(function _(config) {
@@ -104,6 +103,8 @@
             view.addLayer(layer);
         });
 
+
+        //カラーレイヤ―、エレベーションレイヤー以外のレイヤーの定義
         let initBackGroundLayers = function (backGroundView) {
             let backGroundPotreeLayer = new itowns.PotreeLayer('eglise_saint_blaise_arles', {
                 source: new itowns.PotreeSource({
@@ -114,20 +115,9 @@
             });
             // add potreeLayer to scene
             itowns.View.prototype.addLayer.call(backGroundView, backGroundPotreeLayer)
-
-            itowns.Fetcher.json('./layers/JSONLayers/IGN_MNT_HIGHRES.json').then(function _(config) {
-                config.source = new itowns.WMTSSource(config.source);
-                var layer = new itowns.ElevationLayer(config.id, config);
-                backGroundView.addLayer(layer);
-            });
-            itowns.Fetcher.json('./layers/JSONLayers/Ortho.json').then(function _(config) {
-                config.source = new itowns.WMTSSource(config.source);
-                var layer = new itowns.ColorLayer(config.id, config);
-                backGroundView.addLayer(layer);
-            });
-
         }
-        let createSphereMapInstance = new CreateSphereMap(view,initBackGroundLayers/*, debugGui*/);
+        //スフィアマップ作製クラス定義
+        let createSphereMapInstance = new CreateSphereMap(view, null, initBackGroundLayers);
     </script>
 </body>
 
