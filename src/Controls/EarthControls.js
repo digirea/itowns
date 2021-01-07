@@ -187,6 +187,11 @@ class EarthControls extends THREE.EventDispatcher {
             mouseButton: THREE.MOUSE.MIDDLE,
             enable: true,
         };
+        this.states.DOLLY_BY_LEFTBUTTON = {
+            mouseButton: THREE.MOUSE.LEFT,
+            keyboard: 18, // shift
+            enable: true,
+        };
 
         // Set to false to disable this control
         this.enabled = true;
@@ -571,7 +576,9 @@ class EarthControls extends THREE.EventDispatcher {
                 rotateStart.copy(rotateEnd);
                 break;
             }
-            case this.states.DOLLY: {
+            case this.states.DOLLY:
+            case this.states.DOLLY_BY_LEFTBUTTON:
+            {
                 dollyEnd.copy(coords);
                 dollyDelta.subVectors(dollyEnd, dollyStart);
                 const gfx = this.view.mainLoop.gfxEngine;
@@ -720,6 +727,7 @@ class EarthControls extends THREE.EventDispatcher {
                 break;
             }
             case this.states.DOLLY:
+            case this.states.DOLLY_BY_LEFTBUTTON:
                 dollyStart.copy(coords);
                 break;
             case this.states.PAN:
