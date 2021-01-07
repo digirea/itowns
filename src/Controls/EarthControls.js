@@ -189,7 +189,7 @@ class EarthControls extends THREE.EventDispatcher {
         };
         this.states.DOLLY_BY_LEFTBUTTON = {
             mouseButton: THREE.MOUSE.LEFT,
-            keyboard: 18, // shift
+            keyboard: 18, // Alt
             enable: true,
         };
 
@@ -203,7 +203,7 @@ class EarthControls extends THREE.EventDispatcher {
         this.wheelZoomSpeed = options.wheelZoomSpeed || 3.0;
 
         // Limits to how far you can dolly in and out ( PerspectiveCamera only )
-        this.minDistance = options.minDistance || 250;
+        this.minDistance = options.minDistance || 10;
         this.maxDistance = options.maxDistance || view.camera.camera3D.far * 0.8;
 
         // Limits to how far you can zoom in and out ( OrthographicCamera only )
@@ -229,7 +229,7 @@ class EarthControls extends THREE.EventDispatcher {
 
         // Set collision options
         this.handleCollision = typeof (options.handleCollision) !== 'undefined' ? options.handleCollision : true;
-        this.minDistanceCollision = 60;
+        this.minDistanceCollision = 10;
 
         // Set to true to disable use of the keys
         this.enableKeys = true;
@@ -453,8 +453,8 @@ class EarthControls extends THREE.EventDispatcher {
             // ZOOM/ORBIT Move Camera around the target camera
             default: {
                 // get camera position in local space of target
-                this.camera.position.applyMatrix4(cameraTarget.matrixWorldInverse);
-
+                cameraTarget.worldToLocal(this.camera.position);
+                
                 // angle from z-axis around y-axis
                 if (sphericalDelta.theta || sphericalDelta.phi) {
                     spherical.setFromVector3(this.camera.position);
@@ -644,14 +644,14 @@ class EarthControls extends THREE.EventDispatcher {
 
     updateTarget() {
         // Update camera's target position
-        this.view.getPickingPositionFromDepth(null, pickedPosition);
-        const distance = !isNaN(pickedPosition.x) ? this.camera.position.distanceTo(pickedPosition) : 100;
+        const res = this.view.getPickingPositionFromDepth(null, pickedPosition);
+        const distance = (res !== undefined) ? this.camera.position.distanceTo(pickedPosition) : 100;
         targetPosition.set(0, 0, -distance);
         this.camera.localToWorld(targetPosition);
 
         // set new camera target on globe
         positionObject(targetPosition, cameraTarget);
-        cameraTarget.matrixWorldInverse.copy(cameraTarget.matrixWorld).invert();
+        cameraTarget.matrixWorldInverse.copy(cameraTarget.matrixWorld).transpose();
         targetPosition.copy(this.camera.position);
         targetPosition.applyMatrix4(cameraTarget.matrixWorldInverse);
         spherical.setFromVector3(targetPosition);
@@ -753,8 +753,8 @@ class EarthControls extends THREE.EventDispatcher {
         if (point && range > this.minDistance) {
             return this.lookAtCoordinate({
                 coord: new Coordinates('EPSG:4978', point),
-                range: range * 0.6,
-                time: 1500,
+                range: range * 0.4,
+                time: 1000,
             });
         }
     }
