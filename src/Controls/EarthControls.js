@@ -454,7 +454,7 @@ class EarthControls extends THREE.EventDispatcher {
             default: {
                 // get camera position in local space of target
                 cameraTarget.worldToLocal(this.camera.position);
-                
+
                 // angle from z-axis around y-axis
                 if (sphericalDelta.theta || sphericalDelta.phi) {
                     spherical.setFromVector3(this.camera.position);
