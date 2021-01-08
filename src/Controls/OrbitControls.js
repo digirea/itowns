@@ -82,8 +82,8 @@ class OrbitControls extends THREE.EventDispatcher {
         this.view.domElement.addEventListener('touchstart', this._onTouchStart, false);
         this.view.domElement.addEventListener('touchmove', this._onPointerMove, false);
         this.view.domElement.addEventListener('touchend', this._onMouseUp, false);
-        this.view.domElement.addEventListener('keyup', this._onKeyUp, true);
-        this.view.domElement.addEventListener('keydown', this._onKeyDown, true);
+        document.addEventListener('keyup', this._onKeyUp, true);
+        document.addEventListener('keydown', this._onKeyDown, true);
         this.view.domElement.addEventListener('contextmenu', this._onContextMenu, false);
 
         // enable focus
@@ -107,8 +107,8 @@ class OrbitControls extends THREE.EventDispatcher {
         this.view.domElement.removeEventListener('touchstart', this._onTouchStart, false);
         this.view.domElement.removeEventListener('touchmove', this._onPointerMove, false);
         this.view.domElement.removeEventListener('touchend', this._onMouseUp, false);
-        this.view.domElement.removeEventListener('keyup', this._onKeyUp, false);
-        this.view.domElement.removeEventListener('keydown', this._onKeyDown, false);
+        document.addEventListener('keyup', this._onKeyUp, false);
+        document.addEventListener('keydown', this._onKeyDown, false);
         this.view.domElement.removeEventListener('contextmenu', this._onContextMenu, false);
 
         this.dispatchEvent({ type: 'dispose' });
@@ -129,13 +129,6 @@ class OrbitControls extends THREE.EventDispatcher {
         this._camera3D.quaternion.copy(q);
         this._camera3D.scale.copy(s);
 
-        /*
-        this._camera3D.zoom = cameraParams.zoom;
-        this._camera3D.filmOffset = cameraParams.filmOffset;
-        this._camera3D.filmGauge = cameraParams.filmGauge;
-        this._camera3D.aspect = cameraParams.aspect;
-        */
-
         this._camera3D.matrixAutoUpdate = true;
     }
 
@@ -152,11 +145,16 @@ class OrbitControls extends THREE.EventDispatcher {
 
     onPointerMove(event) {
         if (this._isLeftDown === true) {
-            const coords = this.view.eventToViewCoords(event);
-            this.rotate(coords);
-            this.view.notifyChange(this._camera3D);
-        }
-        if (this._isRightDown === true) {
+            if (this._isCtrlDown) {
+                const coords = this.view.eventToViewCoords(event);
+                this.pan(coords);
+                this.view.notifyChange(this._camera3D);
+            } else {
+                const coords = this.view.eventToViewCoords(event);
+                this.rotate(coords);
+                this.view.notifyChange(this._camera3D);
+            }
+        } else if (this._isRightDown === true) {
             const coords = this.view.eventToViewCoords(event);
             this.pan(coords);
             this.view.notifyChange(this._camera3D);
@@ -233,18 +231,8 @@ class OrbitControls extends THREE.EventDispatcher {
         this._isRightDown = false;
     }
 
-    onMouseWheel(event) {
-        let delta = 0;
+    zoomCamera(delta) {
         const previousEyePositoin = (new THREE.Vector3()).copy(this._eye);
-
-        // Substitute wheel input for delta (invert)
-        if (event.wheelDelta !== undefined) {
-            delta = -event.wheelDelta;
-            // Firefox
-        } else if (event.detail !== undefined) {
-            delta = event.detail;
-        }
-
         // Get a vector showing the direction from the camera to the target
         const targetToEye = (new THREE.Vector3()).copy(this._eye).sub(this._target);
         const targetToEyeLen = targetToEye.length();
@@ -268,10 +256,29 @@ class OrbitControls extends THREE.EventDispatcher {
         this.view.notifyChange(this._camera3D);
     }
 
-    onKeyDown() {
+    onMouseWheel(event) {
+        let delta = 0;
+
+        // Substitute wheel input for delta (invert)
+        if (event.wheelDelta !== undefined) {
+            delta = -event.wheelDelta;
+            // Firefox
+        } else if (event.detail !== undefined) {
+            delta = event.detail;
+            delta *= 120 / 5;
+        }
+
+        this.zoomCamera(delta);
+    }
+
+    onKeyDown(event) {
+        this._isCtrlDown = (event.keyCode === 17);
+        this._isAltDown = (event.keyCode === 18);
     }
 
     onKeyUp() {
+        this._isCtrlDown = false;
+        this._isAltDown = false;
     }
 
     onTouchStart(event) {
