@@ -313,6 +313,7 @@ class OrbitControls extends THREE.EventDispatcher {
         this._eye = new THREE.Vector3().copy(this._cameraFirstPosition);
         this._target = new THREE.Vector3(0, 0, 0);
         this._up = new THREE.Vector3(0, 0, 1);
+        this._centerPoint = new THREE.Vector3(0, 0, 0);
 
         this.applyCameraMatrix();
         this.view.notifyChange(this._camera3D);
