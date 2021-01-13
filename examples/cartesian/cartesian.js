@@ -107,6 +107,7 @@ window.onload = function () {
 
     document.body.appendChild(resetButton);
 
+    /*
     var sideButton = document.createElement('button');
     sideButton.style.position = 'fixed'
     sideButton.style.left = '10px'
@@ -144,6 +145,7 @@ window.onload = function () {
     }
 
     document.body.appendChild(overLookButton);
+    */
 
     // let para = document.createElement('div');
     // para.style.position = 'fixed'

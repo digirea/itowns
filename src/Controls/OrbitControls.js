@@ -18,7 +18,6 @@ function createViewMatrix(position, target, upVector) {
     ];
 }
 
-
 /**
  * Orbit controls.
  *
@@ -46,20 +45,19 @@ class OrbitControls extends THREE.EventDispatcher {
         this._posX = 0;
         this._posY = 0;
 
-        this._cameraFirstPosition = new THREE.Vector3(0, 0, 0).copy(this._camera3D.position);
+        this._cameraFirstPosition = new THREE.Vector3().copy(this._camera3D.position);
+        this._cameraFirstNearFar = {
+            near: this._camera3D.near,
+            far: this._camera3D.far,
+        };
 
-        this._eye = new THREE.Vector3(0, 0, 0);
-        this._eye.copy(this._camera3D.position);
+        this._eye = new THREE.Vector3().copy(this._cameraFirstPosition);
         this._target = new THREE.Vector3(0, 0, 0);
         this._up = new THREE.Vector3(0, 0, 1); // zup for itowns gloveview
-
-        this._distance = ((new THREE.Vector3()).copy(this._eye).sub(this._target)).length() / 20;
         this._centerPoint = new THREE.Vector3(0, 0, 0);
 
         // axis
         this.axisZ = new THREE.Vector3(0, 0, 1);
-        this.axisY = new THREE.Vector3(0, 1, 0);
-        this.axisX = new THREE.Vector3(1, 0, 0);
 
         this._isLeftDown = false;
         this._isRightDown = false;
@@ -117,13 +115,11 @@ class OrbitControls extends THREE.EventDispatcher {
     applyCameraMatrix() {
         this._camera3D.matrixAutoUpdate = false;
         this._camera3D.matrixWorldInverse.elements = createViewMatrix(this._eye, this._target, this._up);
-        // this._camera3D.matrix.getInverse(this._camera3D.matrixWorldInverse);
         this._camera3D.matrix.copy(this._camera3D.matrixWorldInverse).invert();
 
         const d = new THREE.Vector3();
         const q = new THREE.Quaternion();
         const s = new THREE.Vector3();
-        // console.log(this._camera3D.matrixWorld, this._viewMatrix);
         this._camera3D.matrix.decompose(d, q, s);
         this._camera3D.position.copy(d);
         this._camera3D.quaternion.copy(q);
@@ -232,24 +228,24 @@ class OrbitControls extends THREE.EventDispatcher {
     }
 
     zoomCamera(delta) {
-        const previousEyePositoin = (new THREE.Vector3()).copy(this._eye);
+        const prePos = (new THREE.Vector3()).copy(this._eye);
         // Get a vector showing the direction from the camera to the target
         const targetToEye = (new THREE.Vector3()).copy(this._eye).sub(this._target);
         const targetToEyeLen = targetToEye.length();
-        const normal1 = (new THREE.Vector3()).copy(targetToEye).normalize();
+        const targetToEyeDir = (new THREE.Vector3()).copy(targetToEye).normalize();
 
         // Calculate the scale
         const rad = targetToEyeLen / delta * 10;
 
         // Move camera based on rad value
-        this._eye = (new THREE.Vector3()).copy(this._eye).add(normal1.multiplyScalar(rad));
+        this._eye = (new THREE.Vector3()).copy(this._eye).add(targetToEyeDir.multiplyScalar(rad));
 
-        // Get the distance from the camera after moving based on the target
         const movedTargetToEye = (new THREE.Vector3()).copy(this._eye).sub(this._target);
         const movedTargetToEyeLen = movedTargetToEye.length();
+        const flipDetection = targetToEye.normalize().dot(movedTargetToEye.normalize());
 
-        if (movedTargetToEyeLen < this.centerToEyeLen && delta < 0) {
-            this._eye = previousEyePositoin;
+        if (flipDetection < 0.00001 || movedTargetToEyeLen <= this._camera3D.near) {
+            this._eye = prePos;
         }
 
         this.applyCameraMatrix();
@@ -296,11 +292,20 @@ class OrbitControls extends THREE.EventDispatcher {
 
     /**
      * watch the target
-     * @param {*} event
+     * @param {*} bbox
      */
-    fitCamera(event) {
-        const centerToEyeLen = this.getCenterToEyeLen(event);
-        const centerPoint = new THREE.Vector3().copy(this._centerPoint);
+    fitCamera(bbox) {
+        const minPoint = bbox.min;
+        const centerPoint = bbox.getCenter(new THREE.Vector3());
+        this._centerPoint = centerPoint;
+        this._target.copy(centerPoint);
+
+        const radiusVector = (new THREE.Vector3()).copy(minPoint).sub(centerPoint);
+        const radius = radiusVector.length();
+        const centerToEyeLen = radius / Math.sin(this._camera3D.fov / 2 * Math.PI / 180);
+
+        this._camera3D.far = centerToEyeLen + radius * 2;
+        this._camera3D.near = Math.max(1.0, this._camera3D.far) / 1.0e6;
 
         this._eye = (new THREE.Vector3(
             centerPoint.x + centerToEyeLen,
@@ -321,60 +326,11 @@ class OrbitControls extends THREE.EventDispatcher {
         this._target = new THREE.Vector3(0, 0, 0);
         this._up = new THREE.Vector3(0, 0, 1);
         this._centerPoint = new THREE.Vector3(0, 0, 0);
+        this._camera3D.near = this._cameraFirstNearFar.near;
+        this._camera3D.far = this._cameraFirstNearFar.far;
 
         this.applyCameraMatrix();
         this.view.notifyChange(this._camera3D);
-    }
-
-    sideCamera(event) {
-        const centerToEyeLen = this.getCenterToEyeLen(event);
-
-        const centerPoint = new THREE.Vector3().copy(this._centerPoint);
-
-        this._eye = (new THREE.Vector3(
-            centerPoint.x,
-            centerPoint.y + centerToEyeLen,
-            centerPoint.z,
-        ));
-
-        this.applyCameraMatrix();
-
-        this.view.notifyChange(this._camera3D);
-    }
-
-    overLookCamera(event) {
-        const centerToEyeLen = this.getCenterToEyeLen(event);
-
-        const centerPoint = new THREE.Vector3().copy(this._centerPoint);
-
-        this._eye = (new THREE.Vector3(
-            centerPoint.x + centerToEyeLen / 10,
-            centerPoint.y,
-            centerPoint.z + centerToEyeLen,
-        ));
-
-        this.applyCameraMatrix();
-
-        this.view.notifyChange(this._camera3D);
-    }
-
-    getCenterToEyeLen(e) {
-        const minPoint = e.min;
-        const centerPoint = e.getCenter(new THREE.Vector3());
-        this._centerPoint = centerPoint;
-
-        const radiusVector = (new THREE.Vector3()).copy(minPoint).sub(centerPoint);
-        const radius = radiusVector.length();
-
-        const centerToEyeLen = radius / Math.sin(this._camera3D.fov / 2 * Math.PI / 180);
-
-        this.centerToEyeLen = centerToEyeLen;
-
-        this._target = centerPoint;
-        this._camera3D.near = 1;
-        this._camera3D.far = centerToEyeLen + radius * 2;
-
-        return centerToEyeLen;
     }
 }
 
