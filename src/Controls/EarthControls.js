@@ -121,7 +121,7 @@ class EarthControls extends THREE.EventDispatcher {
             keyboard: 18, // Alt
             enable: true,
         };
-        this.isMyOrbitMode = true;
+        this.isMyOrbitMode = false;
 
         // Set to false to disable this control
         this.enabled = true;
@@ -181,10 +181,12 @@ class EarthControls extends THREE.EventDispatcher {
         view.scene.add(this.params.cameraTarget);
 
         this.placement = placement;
-        positionObject(placement.coord.as('EPSG:4978', xyz), this.params.cameraTarget);
+        if (this.placement) {
+            positionObject(placement.coord.as('EPSG:4978', xyz), this.params.cameraTarget);
+            placement.tilt = placement.tilt || 89.5;
+            placement.heading = placement.heading || 0;
+        }
 
-        placement.tilt = placement.tilt || 89.5;
-        placement.heading = placement.heading || 0;
         // this.lookAtCoordinate(placement, false);
 
         this.initHelpers();
@@ -1105,7 +1107,7 @@ class EarthControls extends THREE.EventDispatcher {
             this.view.notifyChange(this._camera3D);
         } else {
             // convert to orbit
-            this.myorbit.init(this.camera.position, this.params.cameraTarget.position);
+            this.myorbit.init(this.camera.position.clone(), this.params.cameraTarget.position.clone());
             this.myorbit.applyCameraMatrix();
             this.view.notifyChange(this._camera3D);
         }
@@ -1116,23 +1118,23 @@ class EarthControls extends THREE.EventDispatcher {
         this.camera.quaternion.copy(this._cameraFirstQuat);
 
         this.initParams();
-        positionObject(this.placement.coord.as('EPSG:4978', xyz), this.params.cameraTarget);
+        if (this.placement) {
+            positionObject(this.placement.coord.as('EPSG:4978', xyz), this.params.cameraTarget);
+        }
+        this.myorbit = this.createMyOrbit();
+        this.myorbit.init(this.camera.position.clone(), this.params.cameraTarget.position.clone());
+        
         this.dolly = this.createDolly();
         this.panoramic = this.createPanoramic();
         this.orbit = this.createOrbit();
         this.globemove = this.createGlobeMove();
 
-        this.myorbit = this.createMyOrbit();
-
-        this.update();
-        this.dispatchEvent(this.startEvent);
-        this.dispatchEvent(this.endEvent);
-        this.view.notifyChange(this._camera3D);
-
         const preOrbitMode = this.isMyOrbitMode;
         this.isMyOrbitMode = false;
         this.update();
         this.isMyOrbitMode = preOrbitMode;
+
+        this.view.notifyChange(this._camera3D);
     }
 
     /*
