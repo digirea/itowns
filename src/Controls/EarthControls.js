@@ -202,20 +202,6 @@ class EarthControls extends THREE.EventDispatcher {
             durationDampingOrbital: 0,
         };
 
-        this._onEndingMove = null;
-        this._onMouseMove = this.onMouseMove.bind(this);
-        this._onMouseUp = this.onMouseUp.bind(this);
-        this._onMouseDown = this.onMouseDown.bind(this);
-        this._onMouseWheel = this.onMouseWheel.bind(this);
-        this._onContextMenuListener = this.onContextMenuListener.bind(this);
-        this._ondblclick = this.ondblclick.bind(this);
-        this._onTouchStart = this.onTouchStart.bind(this);
-        this._update = this.update.bind(this);
-        // this._onTouchMove = this.onTouchMove.bind(this);
-        this._onKeyDown = this.onKeyDown.bind(this);
-        this._onKeyUp = this.onKeyUp.bind(this);
-        this._onBlurListener = this.onBlurListener.bind(this);
-
         view.scene.add(this.params.cameraTarget);
 
         positionObject(placement.coord.as('EPSG:4978', xyz), this.params.cameraTarget);
@@ -290,6 +276,20 @@ class EarthControls extends THREE.EventDispatcher {
     }
 
     initEvents() {
+        this._onEndingMove = null;
+        this._onMouseMove = this.onMouseMove.bind(this);
+        this._onMouseUp = this.onMouseUp.bind(this);
+        this._onMouseDown = this.onMouseDown.bind(this);
+        this._onMouseWheel = this.onMouseWheel.bind(this);
+        this._onContextMenuListener = this.onContextMenuListener.bind(this);
+        this._ondblclick = this.ondblclick.bind(this);
+        this._onTouchStart = this.onTouchStart.bind(this);
+        this._update = this.update.bind(this);
+        // this._onTouchMove = this.onTouchMove.bind(this);
+        this._onKeyDown = this.onKeyDown.bind(this);
+        this._onKeyUp = this.onKeyUp.bind(this);
+        this._onBlurListener = this.onBlurListener.bind(this);
+
         document.documentElement.addEventListener('contextmenu', this._onContextMenuListener, false);
         this.view.domElement.addEventListener('mousedown', this._onMouseDown, false);
         this.view.domElement.addEventListener('mousewheel', this._onMouseWheel, false);
@@ -332,16 +332,19 @@ class EarthControls extends THREE.EventDispatcher {
     createDolly() {
         class Dolly {
             constructor(view, camera, minZoom, maxZoom, zoomSpeed, wheelZoomSpeed) {
+                // reference
                 this.view = view;
                 this.camera = camera;
+                // copy
                 this.minZoom = minZoom;
                 this.maxZoom = maxZoom;
+                this.zoomSpeed = zoomSpeed;
+                this.wheelZoomSpeed = wheelZoomSpeed;
+                // self
                 this.dollyStart = new THREE.Vector2();
                 this.dollyEnd = new THREE.Vector2();
                 this.dollyDelta = new THREE.Vector2();
                 this.orbitScale = 1.0;
-                this.zoomSpeed = zoomSpeed;
-                this.wheelZoomSpeed = wheelZoomSpeed;
             }
             get dollyScale() {
                 return 0.95 ** this.zoomSpeed;
@@ -402,10 +405,11 @@ class EarthControls extends THREE.EventDispatcher {
     createPan() {
         class Pan {
             constructor(view, camera, cameraTarget) {
+                // reference
                 this.view = view;
                 this.camera = camera;
                 this.cameraTarget = cameraTarget;
-                // Pan
+                // self
                 this.panStart = new THREE.Vector2();
                 this.panEnd = new THREE.Vector2();
                 this.panDelta = new THREE.Vector2();
@@ -466,14 +470,17 @@ class EarthControls extends THREE.EventDispatcher {
     createPanoramic() {
         class Panoramic {
             constructor(view, camera, cameraTarget, rotateSpeed, sphericalDelta) {
+                // reference
                 this.view = view;
                 this.camera = camera;
                 this.cameraTarget = cameraTarget;
+                this.sphericalDelta = sphericalDelta;
+                // copy
+                this.rotateSpeed = rotateSpeed;
+                // self
                 this.quaterPano = new THREE.Quaternion();
                 this.quaterAxis = new THREE.Quaternion();
                 this.axisX = new THREE.Vector3(1, 0, 0);
-                this.rotateSpeed = rotateSpeed;
-                this.sphericalDelta = sphericalDelta;
                 this.rotateStart = new THREE.Vector2();
                 this.rotateEnd = new THREE.Vector2();
                 this.rotateDelta = new THREE.Vector2();
@@ -524,7 +531,7 @@ class EarthControls extends THREE.EventDispatcher {
             this.sphericalDelta = sphericalDelta;
             // copy
             this.rotateSpeed = rotateSpeed;
-            // private
+            // self
             this.rotateStart = new THREE.Vector2();
             this.rotateEnd = new THREE.Vector2();
             this.rotateDelta = new THREE.Vector2();
@@ -554,6 +561,7 @@ class EarthControls extends THREE.EventDispatcher {
     }
 
     createGlobeMove() {
+        // for 4 classes limitation
         function GlobeMove(view, camera, params) {
             // reference
             this.view = view;
