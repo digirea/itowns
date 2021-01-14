@@ -351,7 +351,7 @@ class EarthControls extends THREE.EventDispatcher {
         const gfx = this.view.mainLoop.gfxEngine;
         this.state = this.states.PAN;
         if (this.camera.isPerspectiveCamera) {
-            let targetDistance = this.camera.position.distanceTo(this.getCameraTargetPosition());
+            let targetDistance = this.camera.position.distanceTo(cameraTarget.position);
             // half of the fov is center to top of screen
             targetDistance *= 2 * Math.tan(THREE.MathUtils.degToRad(this.camera.fov * 0.5));
 
@@ -1032,43 +1032,6 @@ class EarthControls extends THREE.EventDispatcher {
 
         this.dispatchEvent({ type: 'dispose' });
     }
-    /**
-     * Changes the tilt of the current camera, in degrees.
-     * @param {number}  tilt
-     * @param {boolean} isAnimated
-     * @return {Promise<void>}
-     */
-    setTilt(tilt, isAnimated) {
-        return this.lookAtCoordinate({ tilt }, isAnimated);
-    }
-
-    /**
-     * Changes the heading of the current camera, in degrees.
-     * @param {number} heading
-     * @param {boolean} isAnimated
-     * @return {Promise<void>}
-     */
-    setHeading(heading, isAnimated) {
-        return this.lookAtCoordinate({ heading }, isAnimated);
-    }
-
-    /**
-     * Sets the "range": the distance in meters between the camera and the current central point on the screen.
-     * @param {number} range
-     * @param {boolean} isAnimated
-     * @return {Promise<void>}
-     */
-    setRange(range, isAnimated) {
-        return this.lookAtCoordinate({ range }, isAnimated);
-    }
-
-    /**
-     * Returns the {@linkcode Coordinates} of the globe point targeted by the camera in EPSG:4978 projection. See {@linkcode Coordinates} for conversion
-     * @return {THREE.Vector3} position
-     */
-    getCameraTargetPosition() {
-        return cameraTarget.position;
-    }
 
     /**
      * Returns the "range": the distance in meters between the camera and the current central point on the screen.
@@ -1078,64 +1041,6 @@ class EarthControls extends THREE.EventDispatcher {
      */
     getRange(position) {
         return CameraUtils.getTransformCameraLookingAtTarget(this.view, this.camera, position).range;
-    }
-
-    /**
-     * Returns the tilt of the current camera in degrees.
-     * @param {THREE.Vector3} [position] - The position to consider as picked on
-     * the ground.
-     * @return {number} The angle of the rotation in degrees.
-     */
-    getTilt(position) {
-        return CameraUtils.getTransformCameraLookingAtTarget(this.view, this.camera, position).tilt;
-    }
-
-    /**
-     * Returns the heading of the current camera in degrees.
-     * @param {THREE.Vector3} [position] - The position to consider as picked on
-     * the ground.
-     * @return {number} The angle of the rotation in degrees.
-     */
-    getHeading(position) {
-        return CameraUtils.getTransformCameraLookingAtTarget(this.view, this.camera, position).heading;
-    }
-
-    /**
-     * Displaces the central point to a specific amount of pixels from its current position.
-     * The view flies to the desired coordinate, i.e.is not teleported instantly. Note : The results can be strange in some cases, if ever possible, when e.g.the camera looks horizontally or if the displaced center would not pick the ground once displaced.
-     * @param      {vector}  pVector  The vector
-     * @return {Promise}
-     */
-    pan(pVector) {
-        this.mouseToPan(pVector.x, pVector.y);
-        this.update();
-        return Promise.resolve();
-    }
-
-    /**
-     * Returns the orientation angles of the current camera, in degrees.
-     * @return {Array<number>}
-     */
-    getCameraOrientation() {
-        this.view.getPickingPositionFromDepth(null, pickedPosition);
-        return [this.getTilt(pickedPosition), this.getHeading(pickedPosition)];
-    }
-
-    /**
-     * Returns the camera location projected on the ground in lat,lon. See {@linkcode Coordinates} for conversion.
-     * @return {Coordinates} position
-     */
-
-    getCameraCoordinate() {
-        return new Coordinates('EPSG:4978', this.camera.position).as('EPSG:4326');
-    }
-
-    /**
-     * Returns the {@linkcode Coordinates} of the central point on screen in lat,lon. See {@linkcode Coordinates} for conversion.
-     * @return {Coordinates} coordinate
-     */
-    getLookAtCoordinate() {
-        return CameraUtils.getTransformCameraLookingAtTarget(this.view, this.camera).coord;
     }
 
     /**
@@ -1152,38 +1057,6 @@ class EarthControls extends THREE.EventDispatcher {
      */
     isAnimationEnabled() {
         return enableAnimation;
-    }
-
-    /**
-     * Returns the actual zoom. The zoom will always be between the [getMinZoom(), getMaxZoom()].
-     * @return     {number}  The zoom .
-     */
-    getZoom() {
-        return this.view.tileLayer.computeTileZoomFromDistanceCamera(this.getRange(), this.view.camera);
-    }
-
-    /**
-     * Sets the current zoom, which is an index in the logical scales predefined for the application.
-     * The higher the zoom, the closer to the ground.
-     * The zoom is always in the [getMinZoom(), getMaxZoom()] range.
-     * @param      {number}  zoom    The zoom
-     * @param      {boolean}  isAnimated  Indicates if animated
-     * @return     {Promise}
-     */
-    setZoom(zoom, isAnimated) {
-        return this.lookAtCoordinate({ zoom }, isAnimated);
-    }
-
-    /**
-     * Changes the zoom of the central point of screen so that screen acts as a map with a specified scale.
-     *  The view flies to the desired zoom scale;
-     * @param      {number}  scale  The scale
-     * @param      {number}  pitch  The pitch
-     * @param      {boolean}  isAnimated  Indicates if animated
-     * @return     {Promise}
-     */
-    setScale(scale, pitch, isAnimated) {
-        return this.lookAtCoordinate({ scale, pitch }, isAnimated);
     }
 
     /**
@@ -1238,22 +1111,6 @@ class EarthControls extends THREE.EventDispatcher {
                 return result;
             });
         }
-    }
-
-    /**
-     * Pick a position on the globe at the given position in lat,lon. See {@linkcode Coordinates} for conversion.
-     * @param {Vector2} windowCoords - window coordinates
-     * @param {number=} y - The y-position inside the Globe element.
-     * @return {Coordinates} position
-     */
-    pickGeoPosition(windowCoords) {
-        const pickedPosition = this.view.getPickingPositionFromDepth(windowCoords);
-
-        if (!pickedPosition) {
-            return;
-        }
-
-        return new Coordinates('EPSG:4978', pickedPosition).as('EPSG:4326');
     }
 }
 
