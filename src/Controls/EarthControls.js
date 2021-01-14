@@ -3,6 +3,7 @@ import AnimationPlayer from 'Core/AnimationPlayer';
 import Coordinates from 'Core/Geographic/Coordinates';
 import CameraUtils from 'Utils/CameraUtils';
 import StateControl from 'Controls/StateControl';
+import OrbitControls from 'Controls/OrbitControls';
 
 const EPS = 0.000001;
 
@@ -99,6 +100,8 @@ class EarthControls extends THREE.EventDispatcher {
         this.player = new AnimationPlayer();
         this.view = view;
         this.camera = view.camera.camera3D;
+        this._cameraFirstPosition = this.camera.position.clone();
+        this._cameraFirstQuat = this.camera.quaternion.clone();
 
         // State control
         this.states = new StateControl();
@@ -118,6 +121,7 @@ class EarthControls extends THREE.EventDispatcher {
             keyboard: 18, // Alt
             enable: true,
         };
+        this.isMyOrbitMode = true;
 
         // Set to false to disable this control
         this.enabled = true;
@@ -166,35 +170,7 @@ class EarthControls extends THREE.EventDispatcher {
             type: 'end',
         };
 
-        // parameters
-        this.params = {
-            // Orbit
-            spherical: new THREE.Spherical(1.0, 0.01, 0),
-            sphericalDelta: new THREE.Spherical(1.0, 0, 0),
-
-            // Save the last time of mouse move for damping
-            lastTimeMouseMove: 0,
-            // current downed key
-            currentKey: undefined,
-            // Animations and damping
-            enableAnimation: true,
-            dampingMove: new THREE.Quaternion(0, 0, 0, 1),
-            // Save last transformation
-            lastPosition: new THREE.Vector3(),
-            lastQuaternion: new THREE.Quaternion(),
-
-            // Set to true to enable target helper
-            enableTargetHelper: false,
-            helpers: {},
-
-            previousCameraTransform: undefined,
-
-            minDistanceZ: Infinity,
-
-            pickedPosition: new THREE.Vector3(),
-            cameraTarget: new THREE.Object3D(),
-        };
-        this.params.cameraTarget.matrixWorldInverse = new THREE.Matrix4();
+        this.initParams();
 
         this.constants = {
             dampingFactor: 0.6,
@@ -204,6 +180,7 @@ class EarthControls extends THREE.EventDispatcher {
 
         view.scene.add(this.params.cameraTarget);
 
+        this.placement = placement;
         positionObject(placement.coord.as('EPSG:4978', xyz), this.params.cameraTarget);
 
         placement.tilt = placement.tilt || 89.5;
@@ -217,6 +194,7 @@ class EarthControls extends THREE.EventDispatcher {
         this.panoramic = this.createPanoramic();
         this.orbit = this.createOrbit();
         this.globemove = this.createGlobeMove();
+        this.myorbit = this.createMyOrbit();
 
         this.getMinDistanceCameraBoundingSphereObbsUp = (() => {
             const sphereCamera = new THREE.Sphere();
@@ -243,7 +221,7 @@ class EarthControls extends THREE.EventDispatcher {
 
                 // set new camera target on globe
                 positionObject(targetPosition, this.params.cameraTarget);
-                this.params.cameraTarget.matrixWorldInverse.copy(this.params.cameraTarget.matrixWorld).transpose();
+                this.params.cameraTarget.matrixWorldInverse.copy(this.params.cameraTarget.matrixWorld).invert();
                 targetPosition.copy(this.camera.position);
                 targetPosition.applyMatrix4(this.params.cameraTarget.matrixWorldInverse);
                 this.params.spherical.setFromVector3(targetPosition);
@@ -273,6 +251,38 @@ class EarthControls extends THREE.EventDispatcher {
         window.removeEventListener('blur', this._onBlurListener);
 
         this.dispatchEvent({ type: 'dispose' });
+    }
+
+    initParams() {
+        // parameters
+        this.params = {
+            // Orbit
+            spherical: new THREE.Spherical(1.0, 0.01, 0),
+            sphericalDelta: new THREE.Spherical(1.0, 0, 0),
+
+            // Save the last time of mouse move for damping
+            lastTimeMouseMove: 0,
+            // current downed key
+            currentKey: undefined,
+            // Animations and damping
+            enableAnimation: true,
+            dampingMove: new THREE.Quaternion(0, 0, 0, 1),
+            // Save last transformation
+            lastPosition: new THREE.Vector3(),
+            lastQuaternion: new THREE.Quaternion(),
+
+            // Set to true to enable target helper
+            enableTargetHelper: false,
+            helpers: {},
+
+            previousCameraTransform: undefined,
+
+            minDistanceZ: Infinity,
+
+            pickedPosition: new THREE.Vector3(),
+            cameraTarget: new THREE.Object3D(),
+        };
+        this.params.cameraTarget.matrixWorldInverse = new THREE.Matrix4();
     }
 
     initEvents() {
@@ -560,6 +570,10 @@ class EarthControls extends THREE.EventDispatcher {
         return new Orbit(this.view, this.camera, this.params.cameraTarget, this.rotateSpeed, this.params.sphericalDelta);
     }
 
+    createMyOrbit() {
+        return new OrbitControls(this.view, { withoutEvent: true });
+    }
+
     createGlobeMove() {
         // for 4 classes limitation
         function GlobeMove(view, camera, params) {
@@ -663,7 +677,8 @@ class EarthControls extends THREE.EventDispatcher {
     // ZOOM/ORBIT Move Camera around the target camera
     updateOrbitDolly() {
         // get camera position in local space of target
-        this.params.cameraTarget.worldToLocal(this.camera.position);
+        this.camera.position.applyMatrix4(this.params.cameraTarget.matrixWorldInverse);
+        // this.params.cameraTarget.worldToLocal(this.camera.position);
 
         // angle from z-axis around y-axis
         if (this.params.sphericalDelta.theta || this.params.sphericalDelta.phi) {
@@ -728,6 +743,7 @@ class EarthControls extends THREE.EventDispatcher {
     }
 
     update() {
+        if (this.isMyOrbitMode) { return; }
         // We compute distance between camera's bounding sphere and geometry's obb up face
         if (this.handleCollision) { // We check distance to the ground/surface geometry
             // add minDistanceZ between camera's bounding and tiles's oriented bounding box (up face only)
@@ -752,7 +768,6 @@ class EarthControls extends THREE.EventDispatcher {
                 this.updateOrbitDolly();
             }
         }
-
         // TODO : use Date() for dumpingTime
         if (!this.enableDamping) {
             this.params.sphericalDelta.theta = 0;
@@ -795,24 +810,28 @@ class EarthControls extends THREE.EventDispatcher {
         event.preventDefault();
         const coords = this.view.eventToViewCoords(event);
 
-        switch (this.state) {
-            case this.states.ORBIT:
-            case this.states.ORBIT_BY_MIDDLEBUTTON:
-                this.orbit.onMouseMove(coords);
-                break;
-            case this.states.PANORAMIC:
-                this.panoramic.onMouseMove(coords);
-                break;
-            case this.states.DOLLY:
-            case this.states.DOLLY_BY_LEFTBUTTON:
-                this.dolly.onMouseMove(coords);
-                break;
-            case this.states.MOVE_GLOBE:
-                this.globemove.onMouseMove(coords);
-                break;
-            default:
+        if (this.isMyOrbitMode) {
+            this.myorbit.onPointerMove(event);
+        } else {
+            switch (this.state) {
+                case this.states.ORBIT:
+                case this.states.ORBIT_BY_MIDDLEBUTTON:
+                    this.orbit.onMouseMove(coords);
+                    break;
+                case this.states.PANORAMIC:
+                    this.panoramic.onMouseMove(coords);
+                    break;
+                case this.states.DOLLY:
+                case this.states.DOLLY_BY_LEFTBUTTON:
+                    this.dolly.onMouseMove(coords);
+                    break;
+                case this.states.MOVE_GLOBE:
+                    this.globemove.onMouseMove(coords);
+                    break;
+                default:
+            }
+            this.params.lastTimeMouseMove = Date.now();
         }
-        this.params.lastTimeMouseMove = Date.now();
 
         if (this.state !== this.states.NONE) {
             this.update();
@@ -868,25 +887,29 @@ class EarthControls extends THREE.EventDispatcher {
         this.params.previousCameraTransform = CameraUtils.getTransformCameraLookingAtTarget(this.view, this.camera, this.params.pickedPosition);
         this.state = this.states.inputToState(event.button, this.params.currentKey);
         const coords = this.view.eventToViewCoords(event);
-        this.updateTarget();
 
-        switch (this.state) {
-            case this.states.ORBIT:
-            case this.states.ORBIT_BY_MIDDLEBUTTON:
-                this.orbit.onMouseDown(coords);
-                break;
-            case this.states.PANORAMIC:
-                this.panoramic.onMouseDown(coords);
-                break;
-            case this.states.MOVE_GLOBE:
-                this.globemove.onMouseDown(coords);
-                this.updateHelper(this.globemove.pickingPoint, this.params.helpers.picking);
-                break;
-            case this.states.DOLLY:
-            case this.states.DOLLY_BY_LEFTBUTTON:
-                this.dolly.onMouseDown(coords);
-                break;
-            default:
+        if (this.isMyOrbitMode) {
+            this.myorbit.onMouseDown(event);
+        } else {
+            this.updateTarget();
+            switch (this.state) {
+                case this.states.ORBIT:
+                case this.states.ORBIT_BY_MIDDLEBUTTON:
+                    this.orbit.onMouseDown(coords);
+                    break;
+                case this.states.PANORAMIC:
+                    this.panoramic.onMouseDown(coords);
+                    break;
+                case this.states.MOVE_GLOBE:
+                    this.globemove.onMouseDown(coords);
+                    this.updateHelper(this.globemove.pickingPoint, this.params.helpers.picking);
+                    break;
+                case this.states.DOLLY:
+                case this.states.DOLLY_BY_LEFTBUTTON:
+                    this.dolly.onMouseDown(coords);
+                    break;
+                default:
+            }
         }
         if (this.state != this.states.NONE) {
             // add to documentElement for capturing mouse cursor without window
@@ -917,31 +940,35 @@ class EarthControls extends THREE.EventDispatcher {
         document.documentElement.removeEventListener('mousemove', this._onMouseMove, false);
         document.documentElement.removeEventListener('mouseup', this._onMouseUp, false);
 
-        this.globemove.isOutOfSphere = false;
-        this.dispatchEvent(this.endEvent);
+        if (this.isMyOrbitMode) {
+            this.myorbit.onMouseUp();
+        } else {
+            this.globemove.isOutOfSphere = false;
+            this.dispatchEvent(this.endEvent);
 
-        this.player.stop();
+            this.player.stop();
 
-        // Launch damping movement for :
-        //      * this.states.ORBIT
-        //      * this.states.MOVE_GLOBE
-        if (this.enableDamping) {
-            const isORBIT = (this.state === this.states.ORBIT || this.states === this.states.ORBIT_BY_MIDDLEBUTTON);
-            const isSphericalMoving = (this.params.sphericalDelta.theta > EPS || this.params.sphericalDelta.phi > EPS);
-            if (isORBIT && isSphericalMoving) {
-                this.player.play(this.constants.durationDampingOrbital);
-                this._onEndingMove = () => this.onEndingMove();
-                this.player.addEventListener('animation-stopped', this._onEndingMove);
-            } else if (this.state === this.states.MOVE_GLOBE && (Date.now() -  this.params.lastTimeMouseMove < 50)) {
-                // animation since mouse up event occurs less than 50ms after the last mouse move
-                this.player.play(this.constants.durationDampingMove);
-                this._onEndingMove = () => this.onEndingMove();
-                this.player.addEventListener('animation-stopped', this._onEndingMove);
+            // Launch damping movement for :
+            //      * this.states.ORBIT
+            //      * this.states.MOVE_GLOBE
+            if (this.enableDamping) {
+                const isORBIT = (this.state === this.states.ORBIT || this.states === this.states.ORBIT_BY_MIDDLEBUTTON);
+                const isSphericalMoving = (this.params.sphericalDelta.theta > EPS || this.params.sphericalDelta.phi > EPS);
+                if (isORBIT && isSphericalMoving) {
+                    this.player.play(this.constants.durationDampingOrbital);
+                    this._onEndingMove = () => this.onEndingMove();
+                    this.player.addEventListener('animation-stopped', this._onEndingMove);
+                } else if (this.state === this.states.MOVE_GLOBE && (Date.now() -  this.params.lastTimeMouseMove < 50)) {
+                    // animation since mouse up event occurs less than 50ms after the last mouse move
+                    this.player.play(this.constants.durationDampingMove);
+                    this._onEndingMove = () => this.onEndingMove();
+                    this.player.addEventListener('animation-stopped', this._onEndingMove);
+                } else {
+                    this.onEndingMove();
+                }
             } else {
                 this.onEndingMove();
             }
-        } else {
-            this.onEndingMove();
         }
     }
 
@@ -962,31 +989,43 @@ class EarthControls extends THREE.EventDispatcher {
             delta = -event.detail;
         }
 
-        this.dolly.onMouseWheel(delta);
-
-        const previousRange = this.getRange(this.params.pickedPosition);
-        this.update();
-        const newRange = this.getRange(this.params.pickedPosition);
-        if (Math.abs(newRange - previousRange) / previousRange > 0.001) {
-            this.dispatchEvent({
-                type: CONTROL_EVENTS.RANGE_CHANGED,
-                previous: previousRange,
-                new: newRange,
-            });
+        if (this.isMyOrbitMode) {
+            this.myorbit.onMouseWheel(event);
+        } else {
+            this.dolly.onMouseWheel(delta);
+            const previousRange = this.getRange(this.params.pickedPosition);
+            this.update();
+            const newRange = this.getRange(this.params.pickedPosition);
+            if (Math.abs(newRange - previousRange) / previousRange > 0.001) {
+                this.dispatchEvent({
+                    type: CONTROL_EVENTS.RANGE_CHANGED,
+                    previous: previousRange,
+                    new: newRange,
+                });
+            }
         }
+
         this.dispatchEvent(this.startEvent);
         this.dispatchEvent(this.endEvent);
     }
 
     onKeyUp() {
-        if (this.enabled === false || this.enableKeys === false) { return; }
-        this.params.currentKey = undefined;
+        if (this.isMyOrbitMode) {
+            this.myorbit.onKeyUp(event);
+        } else {
+            if (this.enabled === false || this.enableKeys === false) { return; }
+            this.params.currentKey = undefined;
+        }
     }
 
     onKeyDown(event) {
-        this.player.stop();
-        if (this.enabled === false || this.enableKeys === false) { return; }
-        this.params.currentKey = event.keyCode;
+        if (this.isMyOrbitMode) {
+            this.myorbit.onKeyDown(event);
+        } else {
+            this.player.stop();
+            if (this.enabled === false || this.enableKeys === false) { return; }
+            this.params.currentKey = event.keyCode;
+        }
     }
 
     onTouchStart(event) {
@@ -998,7 +1037,9 @@ class EarthControls extends THREE.EventDispatcher {
 
         this.updateTarget();
 
-        if (this.state !== this.states.NONE) {
+        if (this.isMyOrbitMode) {
+            this.myorbit.onTouchStart(event);
+        } else if (this.state !== this.states.NONE) {
             switch (this.state) {
                 case this.states.MOVE_GLOBE: {
                     const coords = this.view.eventToViewCoords(event);
@@ -1036,6 +1077,62 @@ class EarthControls extends THREE.EventDispatcher {
 
             this.dispatchEvent(this.startEvent);
         }
+    }
+
+    setMyOrbitMode(isMyOrbitMode) {
+        if (this.isMyOrbitMode === isMyOrbitMode) { return; }
+        const isOrbitToEarth = this.isMyOrbitMode;
+        this.isMyOrbitMode = isMyOrbitMode;
+
+        if (isOrbitToEarth) {
+            // move earth to center;
+            this.myorbit.panToCenter();
+
+            const c = new Coordinates('EPSG:4326', 0, 0, 0);
+            xyz.setFromVector3(this.camera.position).as('EPSG:4326', c);
+            const onEarth = new Coordinates('EPSG:4326', c.x, c.y, 0);
+            const d = new Coordinates('EPSG:4978', 0, 0, 0);
+            onEarth.as('EPSG:4978', d);
+            const onEarthVec = new THREE.Vector3(d.x, d.y, d.z);
+            const radius = onEarthVec.length();
+            if (this.camera.position.length() < radius) {
+                this.camera.position.copy(onEarthVec);
+                this.camera.position.add(onEarthVec.normalize().multiplyScalar(radius));
+            }
+
+            this.updateTarget();
+            this.update();
+            this.view.notifyChange(this._camera3D);
+        } else {
+            // convert to orbit
+            this.myorbit.init(this.camera.position, this.params.cameraTarget.position);
+            this.myorbit.applyCameraMatrix();
+            this.view.notifyChange(this._camera3D);
+        }
+    }
+
+    resetCamera() {
+        this.camera.position.copy(this._cameraFirstPosition);
+        this.camera.quaternion.copy(this._cameraFirstQuat);
+
+        this.initParams();
+        positionObject(this.placement.coord.as('EPSG:4978', xyz), this.params.cameraTarget);
+        this.dolly = this.createDolly();
+        this.panoramic = this.createPanoramic();
+        this.orbit = this.createOrbit();
+        this.globemove = this.createGlobeMove();
+
+        this.myorbit = this.createMyOrbit();
+
+        this.update();
+        this.dispatchEvent(this.startEvent);
+        this.dispatchEvent(this.endEvent);
+        this.view.notifyChange(this._camera3D);
+
+        const preOrbitMode = this.isMyOrbitMode;
+        this.isMyOrbitMode = false;
+        this.update();
+        this.isMyOrbitMode = preOrbitMode;
     }
 
     /*

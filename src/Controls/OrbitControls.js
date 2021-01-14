@@ -41,18 +41,58 @@ class OrbitControls extends THREE.EventDispatcher {
         this.options = options;
         this._camera3D = view.camera.camera3D;
 
+        this.init();
+
+        this._isWithoutEvent = false || options.withoutEvent;
+        if (!options.withoutEvent) {
+            this._onMouseDown = this.onMouseDown.bind(this);
+            this._onPointerMove = this.onPointerMove.bind(this);
+            this._onMouseUp = this.onMouseUp.bind(this);
+            this._onMouseWheel = this.onMouseWheel.bind(this);
+            this._onTouchStart = this.onTouchStart.bind(this);
+            this._onKeyDown = this.onKeyDown.bind(this);
+            this._onKeyUp = this.onKeyUp.bind(this);
+            this._onContextMenu = this.onContextMenu.bind(this);
+
+            this.view.domElement.addEventListener('mousedown', this._onMouseDown, false);
+            // for out of window
+            document.addEventListener('mousemove', this._onPointerMove, false);
+            document.addEventListener('mouseup', this._onMouseUp, false);
+            this.view.domElement.addEventListener('mousewheel', this._onMouseWheel, false);
+            this.view.domElement.addEventListener('DOMMouseScroll', this._onMouseWheel, false); // firefox
+            this.view.domElement.addEventListener('touchstart', this._onTouchStart, false);
+            this.view.domElement.addEventListener('touchmove', this._onPointerMove, false);
+            this.view.domElement.addEventListener('touchend', this._onMouseUp, false);
+            document.addEventListener('keyup', this._onKeyUp, true);
+            document.addEventListener('keydown', this._onKeyDown, true);
+            this.view.domElement.addEventListener('contextmenu', this._onContextMenu, false);
+
+            // enable focus
+            this.view.domElement.setAttribute('tabindex', '0');
+
+            // focus policy
+            if (options.focusOnMouseOver) {
+                view.domElement.addEventListener('mouseover', () => view.domElement.focus());
+            }
+            if (options.focusOnClick) {
+                view.domElement.addEventListener('click', () => view.domElement.focus());
+            }
+        }
+    }
+
+    init(position = new THREE.Vector3().copy(this._camera3D.position), target = new THREE.Vector3(0, 0, 0)) {
         // temporary cursor position
         this._posX = 0;
         this._posY = 0;
 
-        this._cameraFirstPosition = new THREE.Vector3().copy(this._camera3D.position);
+        this._cameraFirstPosition = position;
         this._cameraFirstNearFar = {
             near: this._camera3D.near,
             far: this._camera3D.far,
         };
 
         this._eye = new THREE.Vector3().copy(this._cameraFirstPosition);
-        this._target = new THREE.Vector3(0, 0, 0);
+        this._target = target;
         this._up = new THREE.Vector3(0, 0, 1); // zup for itowns gloveview
         this._centerPoint = new THREE.Vector3(0, 0, 0);
 
@@ -61,53 +101,37 @@ class OrbitControls extends THREE.EventDispatcher {
 
         this._isLeftDown = false;
         this._isRightDown = false;
+    }
 
-        this._onMouseDown = this.onMouseDown.bind(this);
-        this._onPointerMove = this.onPointerMove.bind(this);
-        this._onMouseUp = this.onMouseUp.bind(this);
-        this._onMouseWheel = this.onMouseWheel.bind(this);
-        this._onTouchStart = this.onTouchStart.bind(this);
-        this._onKeyDown = this.onKeyDown.bind(this);
-        this._onKeyUp = this.onKeyUp.bind(this);
-        this._onContextMenu = this.onContextMenu.bind(this);
+    /**
+     * camera reset
+     */
+    resetCamera() {
+        this._eye = new THREE.Vector3().copy(this._cameraFirstPosition);
+        this._target = new THREE.Vector3(0, 0, 0);
+        this._up = new THREE.Vector3(0, 0, 1);
+        this._centerPoint = new THREE.Vector3(0, 0, 0);
+        this._camera3D.near = this._cameraFirstNearFar.near;
+        this._camera3D.far = this._cameraFirstNearFar.far;
 
-        this.view.domElement.addEventListener('mousedown', this._onMouseDown, false);
-        // for out of window
-        document.addEventListener('mousemove', this._onPointerMove, false);
-        document.addEventListener('mouseup', this._onMouseUp, false);
-        this.view.domElement.addEventListener('mousewheel', this._onMouseWheel, false);
-        this.view.domElement.addEventListener('DOMMouseScroll', this._onMouseWheel, false); // firefox
-        this.view.domElement.addEventListener('touchstart', this._onTouchStart, false);
-        this.view.domElement.addEventListener('touchmove', this._onPointerMove, false);
-        this.view.domElement.addEventListener('touchend', this._onMouseUp, false);
-        document.addEventListener('keyup', this._onKeyUp, true);
-        document.addEventListener('keydown', this._onKeyDown, true);
-        this.view.domElement.addEventListener('contextmenu', this._onContextMenu, false);
-
-        // enable focus
-        this.view.domElement.setAttribute('tabindex', '0');
-
-        // focus policy
-        if (options.focusOnMouseOver) {
-            view.domElement.addEventListener('mouseover', () => view.domElement.focus());
-        }
-        if (options.focusOnClick) {
-            view.domElement.addEventListener('click', () => view.domElement.focus());
-        }
+        this.applyCameraMatrix();
+        this.view.notifyChange(this._camera3D);
     }
 
     dispose() {
-        this.view.domElement.removeEventListener('mousedown', this._onMouseDown, false);
-        document.removeEventListener('mousemove', this._onPointerMove, false);
-        document.removeEventListener('mouseup', this._onMouseUp, false);
-        this.view.domElement.removeEventListener('mousewheel', this._onMouseWheel, false);
-        this.view.domElement.removeEventListener('DOMMouseScroll', this._onMouseWheel, false); // firefox
-        this.view.domElement.removeEventListener('touchstart', this._onTouchStart, false);
-        this.view.domElement.removeEventListener('touchmove', this._onPointerMove, false);
-        this.view.domElement.removeEventListener('touchend', this._onMouseUp, false);
-        document.addEventListener('keyup', this._onKeyUp, false);
-        document.addEventListener('keydown', this._onKeyDown, false);
-        this.view.domElement.removeEventListener('contextmenu', this._onContextMenu, false);
+        if (!this.options.withoutEvent) {
+            this.view.domElement.removeEventListener('mousedown', this._onMouseDown, false);
+            document.removeEventListener('mousemove', this._onPointerMove, false);
+            document.removeEventListener('mouseup', this._onMouseUp, false);
+            this.view.domElement.removeEventListener('mousewheel', this._onMouseWheel, false);
+            this.view.domElement.removeEventListener('DOMMouseScroll', this._onMouseWheel, false); // firefox
+            this.view.domElement.removeEventListener('touchstart', this._onTouchStart, false);
+            this.view.domElement.removeEventListener('touchmove', this._onPointerMove, false);
+            this.view.domElement.removeEventListener('touchend', this._onMouseUp, false);
+            document.addEventListener('keyup', this._onKeyUp, false);
+            document.addEventListener('keydown', this._onKeyDown, false);
+            this.view.domElement.removeEventListener('contextmenu', this._onContextMenu, false);
+        }
 
         this.dispatchEvent({ type: 'dispose' });
     }
@@ -222,6 +246,14 @@ class OrbitControls extends THREE.EventDispatcher {
         this._posY = coords.y;
     }
 
+    panToCenter() {
+        const move = (new THREE.Vector3()).copy(this._target).negate();
+        this._eye.add(move);
+        this._target.set(0, 0, 0);
+        this.applyCameraMatrix();
+        this.view.notifyChange(this._camera3D);
+    }
+
     onMouseUp() {
         this._isLeftDown = false;
         this._isRightDown = false;
@@ -312,22 +344,6 @@ class OrbitControls extends THREE.EventDispatcher {
             centerPoint.y,
             centerPoint.z,
         ));
-
-        this.applyCameraMatrix();
-
-        this.view.notifyChange(this._camera3D);
-    }
-
-    /**
-     * camera reset
-     */
-    resetCamera() {
-        this._eye = new THREE.Vector3().copy(this._cameraFirstPosition);
-        this._target = new THREE.Vector3(0, 0, 0);
-        this._up = new THREE.Vector3(0, 0, 1);
-        this._centerPoint = new THREE.Vector3(0, 0, 0);
-        this._camera3D.near = this._cameraFirstNearFar.near;
-        this._camera3D.far = this._cameraFirstNearFar.far;
 
         this.applyCameraMatrix();
         this.view.notifyChange(this._camera3D);
