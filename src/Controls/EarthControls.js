@@ -255,6 +255,43 @@ class EarthControls extends THREE.EventDispatcher {
         this._onKeyUp = this.onKeyUp.bind(this);
         this._onBlurListener = this.onBlurListener.bind(this);
 
+        view.scene.add(this.params.cameraTarget);
+
+        this.initEvents();
+        this.initHelpers();
+
+        positionObject(placement.coord.as('EPSG:4978', xyz), this.params.cameraTarget);
+
+        placement.tilt = placement.tilt || 89.5;
+        placement.heading = placement.heading || 0;
+        // this.lookAtCoordinate(placement, false);
+    }
+
+    dispose() {
+        document.documentElement.removeEventListener('contextmenu', this._onContextMenuListener, false);
+        this.view.domElement.removeEventListener('mousedown', this._onMouseDown, false);
+        document.documentElement.removeEventListener('mousemove', this._onMouseMove, false);
+        this.view.domElement.removeEventListener('mousewheel', this._onMouseWheel, false);
+        this.view.domElement.removeEventListener('DOMMouseScroll', this._onMouseWheel, false); // firefox
+        document.documentElement.removeEventListener('mouseup', this._onMouseUp, false);
+        // this.view.domElement.removeEventListener('mouseleave', this._onMouseUp, false);
+        this.view.domElement.removeEventListener('dblclick', this._ondblclick, false);
+
+        this.view.domElement.removeEventListener('touchstart', this._onTouchStart, false);
+        this.view.domElement.removeEventListener('touchend', this._onMouseUp, false);
+        this.view.domElement.removeEventListener('touchmove', this._onTouchMove, false);
+
+        this.player.removeEventListener('animation-frame', this._onKeyUp);
+
+        window.removeEventListener('keydown', this._onKeyDown, false);
+        window.removeEventListener('keyup', this._onKeyUp, false);
+
+        window.removeEventListener('blur', this._onBlurListener);
+
+        this.dispatchEvent({ type: 'dispose' });
+    }
+
+    initEvents() {
         document.documentElement.addEventListener('contextmenu', this._onContextMenuListener, false);
         this.view.domElement.addEventListener('mousedown', this._onMouseDown, false);
         this.view.domElement.addEventListener('mousewheel', this._onMouseWheel, false);
@@ -273,32 +310,25 @@ class EarthControls extends THREE.EventDispatcher {
 
         // Reset key/mouse when window loose focus
         window.addEventListener('blur', this._onBlurListener);
+    }
 
-        view.scene.add(this.params.cameraTarget);
-
-        // Update helper
+    initHelpers() {
         if (this.params.enableTargetHelper) {
             this.updateHelper = (position, helper) => {
                 positionObject(position, helper);
-                view.notifyChange(this.camera);
+                this.view.notifyChange(this.camera);
             };
             this.params.helpers.picking = new THREE.AxesHelper(500000);
             this.params.helpers.target = new THREE.AxesHelper(500000);
             this.params.cameraTarget.add(this.params.helpers.target);
-            view.scene.add(this.params.helpers.picking);
-            const layerTHREEjs = view.mainLoop.gfxEngine.getUniqueThreejsLayer();
+            this.view.scene.add(this.params.helpers.picking);
+            const layerTHREEjs = this.view.mainLoop.gfxEngine.getUniqueThreejsLayer();
             this.params.helpers.target.layers.set(layerTHREEjs);
             this.params.helpers.picking.layers.set(layerTHREEjs);
             this.camera.layers.enable(layerTHREEjs);
         } else {
             this.updateHelper = () => {};
         }
-
-        positionObject(placement.coord.as('EPSG:4978', xyz), this.params.cameraTarget);
-
-        placement.tilt = placement.tilt || 89.5;
-        placement.heading = placement.heading || 0;
-        this.lookAtCoordinate(placement, false);
     }
 
     get dollyScale() {
@@ -307,10 +337,6 @@ class EarthControls extends THREE.EventDispatcher {
 
     get wheelDollyScale() {
         return 0.95 ** this.wheelZoomSpeed;
-    }
-
-    get isPaused() {
-        return this.state == this.states.NONE;
     }
 
     onEndingMove(current) {
@@ -407,6 +433,133 @@ class EarthControls extends THREE.EventDispatcher {
         }
     }
 
+    // MOVE_GLOBE Rotate globe with mouse
+    updateMoveGlobe() {
+        if (this.params.minDistanceZ < 0) {
+            this.params.cameraTarget.translateY(-this.params.minDistanceZ);
+            this.camera.position.setLength(this.camera.position.length() - this.params.minDistanceZ);
+        } else if (this.params.minDistanceZ < this.minDistanceCollision) {
+            const translate = this.minDistanceCollision * (1.0 - this.params.minDistanceZ / this.minDistanceCollision);
+            this.params.cameraTarget.translateY(translate);
+            this.camera.position.setLength(this.camera.position.length() + translate);
+        }
+        if (this.params.lastNormalizedIntersection.lengthSq() > this.constants.EPS) {
+            this.params.lastNormalizedIntersection.copy(this.params.normalizedIntersection).applyQuaternion(this.params.moveAroundGlobe);
+        }
+        this.params.cameraTarget.position.applyQuaternion(this.params.moveAroundGlobe);
+        this.camera.position.applyQuaternion(this.params.moveAroundGlobe);
+
+        this.camera.up.copy(this.params.cameraTarget.position).normalize();
+        this.camera.lookAt(this.params.cameraTarget.position);
+    }
+
+    // PAN Move camera in projection plan
+    updatePan() {
+        this.camera.position.add(this.params.panVector);
+        this.params.cameraTarget.position.add(this.params.panVector);
+
+        this.camera.up.copy(this.params.cameraTarget.position).normalize();
+        this.camera.lookAt(this.params.cameraTarget.position);
+
+        this.params.panVector.set(0, 0, 0);
+    }
+
+    // PANORAMIC Move target camera
+    updateParanomic() {
+        this.camera.worldToLocal(this.params.cameraTarget.position);
+        const normal = this.camera.position.clone().normalize().applyQuaternion(this.camera.quaternion.clone().invert());
+        this.params.quaterPano.setFromAxisAngle(normal, this.params.sphericalDelta.theta).multiply(this.params.quaterAxis.setFromAxisAngle(this.params.axisX, this.params.sphericalDelta.phi));
+        this.params.cameraTarget.position.applyQuaternion(this.params.quaterPano);
+        this.camera.localToWorld(this.params.cameraTarget.position);
+
+        this.camera.up.copy(this.params.cameraTarget.position).normalize();
+        this.camera.lookAt(this.params.cameraTarget.position);
+    }
+
+    // ZOOM/ORBIT Move Camera around the target camera
+    updateOrbitDolly() {
+        // get camera position in local space of target
+        this.params.cameraTarget.worldToLocal(this.camera.position);
+
+        // angle from z-axis around y-axis
+        if (this.params.sphericalDelta.theta || this.params.sphericalDelta.phi) {
+            this.params.spherical.setFromVector3(this.camera.position);
+        }
+        // far underground
+        const dynamicRadius = this.params.spherical.radius * Math.sin(this.minPolarAngle);
+        const slowdownLimit = dynamicRadius * 8;
+        const contraryLimit = dynamicRadius * 2;
+        const minContraintPhi = -0.01;
+
+        if (this.params.minDistanceZ < slowdownLimit && this.params.minDistanceZ > contraryLimit && this.params.sphericalDelta.phi > 0) {
+            // slowdown zone : slowdown this.params.sphericalDelta.phi
+            const slowdownZone = slowdownLimit - contraryLimit;
+            // the deeper the camera is in this zone, the bigger the factor is
+            const slowdownFactor = 1 - (slowdownZone - (this.params.minDistanceZ - contraryLimit)) / slowdownZone;
+            // apply slowdown factor on tilt mouvement
+            this.params.sphericalDelta.phi *= slowdownFactor * slowdownFactor;
+        } else if (this.params.minDistanceZ < contraryLimit && this.params.minDistanceZ > -contraryLimit && this.params.sphericalDelta.phi > minContraintPhi) {
+            // contraint zone : contraint this.params.sphericalDelta.phi
+            const contraryZone = 2 * contraryLimit;
+            // calculation of the angle of rotation which allows to leave this zone
+            let contraryPhi = -Math.asin((contraryLimit - this.params.minDistanceZ) * 0.25 / this.params.spherical.radius);
+            // clamp contraryPhi to make a less brutal exit
+            contraryPhi = THREE.MathUtils.clamp(contraryPhi, minContraintPhi, 0);
+            // the deeper the camera is in this zone, the bigger the factor is
+            const contraryFactor = 1 - (contraryLimit - this.params.minDistanceZ) / contraryZone;
+            this.params.sphericalDelta.phi = THREE.MathUtils.lerp(this.params.sphericalDelta.phi, contraryPhi, contraryFactor);
+            this.params.minDistanceZ -= Math.sin(this.params.sphericalDelta.phi) * this.params.spherical.radius;
+        }
+        this.params.spherical.theta += this.params.sphericalDelta.theta;
+        this.params.spherical.phi += this.params.sphericalDelta.phi;
+
+        // restrict spherical.theta to be between desired limits
+        this.params.spherical.theta = Math.max(this.minAzimuthAngle, Math.min(this.maxAzimuthAngle, this.params.spherical.theta));
+
+        // restrict spherical.phi to be between desired limits
+        this.params.spherical.phi = Math.max(this.minPolarAngle, Math.min(this.maxPolarAngle, this.params.spherical.phi));
+        this.params.spherical.radius = this.camera.position.length() * this.params.orbitScale;
+
+        // restrict spherical.phi to be betwee EPS and PI-EPS
+        this.params.spherical.makeSafe();
+
+        // restrict radius to be between desired limits
+        this.params.spherical.radius = Math.max(this.minDistance, Math.min(this.maxDistance, this.params.spherical.radius));
+
+        this.camera.position.setFromSpherical(this.params.spherical);
+
+        // if camera is underground, so move up camera
+        if (this.params.minDistanceZ < 0) {
+            this.camera.position.y -= this.params.minDistanceZ;
+            this.params.spherical.setFromVector3(this.camera.position);
+            this.params.sphericalDelta.phi = 0;
+        }
+
+        this.params.cameraTarget.localToWorld(this.camera.position);
+
+        this.camera.up.copy(this.params.cameraTarget.position).normalize();
+        this.camera.lookAt(this.params.cameraTarget.position);
+
+        this.params.orbitScale = 1;
+    }
+
+    updateDumping() {
+        // TODO : use Date() for dumpingTime
+        if (!this.enableDamping) {
+            this.params.sphericalDelta.theta = 0;
+            this.params.sphericalDelta.phi = 0;
+            this.params.moveAroundGlobe.set(0, 0, 0, 1);
+        } else if (this.isOutOfSphere) {
+            this.params.sphericalDelta.theta = 0;
+            this.params.sphericalDelta.phi = 0;
+            this.params.moveAroundGlobe.slerp(this.params.dampingMove, this.constants.dampingFactor * 0.5);
+        } else {
+            this.params.sphericalDelta.theta *= (1 - this.constants.dampingFactor);
+            this.params.sphericalDelta.phi *= (1 - this.constants.dampingFactor);
+            this.params.moveAroundGlobe.slerp(this.params.dampingMove, this.constants.dampingFactor * 0.2);
+        }
+    }
+
     update() {
         // We compute distance between camera's bounding sphere and geometry's obb up face
         if (this.handleCollision) { // We check distance to the ground/surface geometry
@@ -422,119 +575,21 @@ class EarthControls extends THREE.EventDispatcher {
             }
         }
         switch (this.state) {
-            // MOVE_GLOBE Rotate globe with mouse
             case this.states.MOVE_GLOBE:
-                if (this.params.minDistanceZ < 0) {
-                    this.params.cameraTarget.translateY(-this.params.minDistanceZ);
-                    this.camera.position.setLength(this.camera.position.length() - this.params.minDistanceZ);
-                } else if (this.params.minDistanceZ < this.minDistanceCollision) {
-                    const translate = this.minDistanceCollision * (1.0 - this.params.minDistanceZ / this.minDistanceCollision);
-                    this.params.cameraTarget.translateY(translate);
-                    this.camera.position.setLength(this.camera.position.length() + translate);
-                }
-                if (this.params.lastNormalizedIntersection.lengthSq() > this.constants.EPS) {
-                    this.params.lastNormalizedIntersection.copy(this.params.normalizedIntersection).applyQuaternion(this.params.moveAroundGlobe);
-                }
-                this.params.cameraTarget.position.applyQuaternion(this.params.moveAroundGlobe);
-                this.camera.position.applyQuaternion(this.params.moveAroundGlobe);
+                this.updateMoveGlobe();
                 break;
-            // PAN Move camera in projection plan
             case this.states.PAN:
-                this.camera.position.add(this.params.panVector);
-                this.params.cameraTarget.position.add(this.params.panVector);
+                this.updatePan();
                 break;
-            // PANORAMIC Move target camera
-            case this.states.PANORAMIC: {
-                this.camera.worldToLocal(this.params.cameraTarget.position);
-                const normal = this.camera.position.clone().normalize().applyQuaternion(this.camera.quaternion.clone().invert());
-                this.params.quaterPano.setFromAxisAngle(normal, this.params.sphericalDelta.theta).multiply(this.params.quaterAxis.setFromAxisAngle(this.params.axisX, this.params.sphericalDelta.phi));
-                this.params.cameraTarget.position.applyQuaternion(this.params.quaterPano);
-                this.camera.localToWorld(this.params.cameraTarget.position);
+            case this.states.PANORAMIC:
+                this.updateParanomic();
                 break;
-            }
-            // ZOOM/ORBIT Move Camera around the target camera
             default: {
-                // get camera position in local space of target
-                this.params.cameraTarget.worldToLocal(this.camera.position);
-
-                // angle from z-axis around y-axis
-                if (this.params.sphericalDelta.theta || this.params.sphericalDelta.phi) {
-                    this.params.spherical.setFromVector3(this.camera.position);
-                }
-                // far underground
-                const dynamicRadius = this.params.spherical.radius * Math.sin(this.minPolarAngle);
-                const slowdownLimit = dynamicRadius * 8;
-                const contraryLimit = dynamicRadius * 2;
-                const minContraintPhi = -0.01;
-
-                if (this.params.minDistanceZ < slowdownLimit && this.params.minDistanceZ > contraryLimit && this.params.sphericalDelta.phi > 0) {
-                    // slowdown zone : slowdown this.params.sphericalDelta.phi
-                    const slowdownZone = slowdownLimit - contraryLimit;
-                    // the deeper the camera is in this zone, the bigger the factor is
-                    const slowdownFactor = 1 - (slowdownZone - (this.params.minDistanceZ - contraryLimit)) / slowdownZone;
-                    // apply slowdown factor on tilt mouvement
-                    this.params.sphericalDelta.phi *= slowdownFactor * slowdownFactor;
-                } else if (this.params.minDistanceZ < contraryLimit && this.params.minDistanceZ > -contraryLimit && this.params.sphericalDelta.phi > minContraintPhi) {
-                    // contraint zone : contraint this.params.sphericalDelta.phi
-                    const contraryZone = 2 * contraryLimit;
-                    // calculation of the angle of rotation which allows to leave this zone
-                    let contraryPhi = -Math.asin((contraryLimit - this.params.minDistanceZ) * 0.25 / this.params.spherical.radius);
-                    // clamp contraryPhi to make a less brutal exit
-                    contraryPhi = THREE.MathUtils.clamp(contraryPhi, minContraintPhi, 0);
-                    // the deeper the camera is in this zone, the bigger the factor is
-                    const contraryFactor = 1 - (contraryLimit - this.params.minDistanceZ) / contraryZone;
-                    this.params.sphericalDelta.phi = THREE.MathUtils.lerp(this.params.sphericalDelta.phi, contraryPhi, contraryFactor);
-                    this.params.minDistanceZ -= Math.sin(this.params.sphericalDelta.phi) * this.params.spherical.radius;
-                }
-                this.params.spherical.theta += this.params.sphericalDelta.theta;
-                this.params.spherical.phi += this.params.sphericalDelta.phi;
-
-                // restrict spherical.theta to be between desired limits
-                this.params.spherical.theta = Math.max(this.minAzimuthAngle, Math.min(this.maxAzimuthAngle, this.params.spherical.theta));
-
-                // restrict spherical.phi to be between desired limits
-                this.params.spherical.phi = Math.max(this.minPolarAngle, Math.min(this.maxPolarAngle, this.params.spherical.phi));
-                this.params.spherical.radius = this.camera.position.length() * this.params.orbitScale;
-
-                // restrict spherical.phi to be betwee EPS and PI-EPS
-                this.params.spherical.makeSafe();
-
-                // restrict radius to be between desired limits
-                this.params.spherical.radius = Math.max(this.minDistance, Math.min(this.maxDistance, this.params.spherical.radius));
-
-                this.camera.position.setFromSpherical(this.params.spherical);
-
-                // if camera is underground, so move up camera
-                if (this.params.minDistanceZ < 0) {
-                    this.camera.position.y -= this.params.minDistanceZ;
-                    this.params.spherical.setFromVector3(this.camera.position);
-                    this.params.sphericalDelta.phi = 0;
-                }
-
-                this.params.cameraTarget.localToWorld(this.camera.position);
+                this.updateOrbitDolly();
             }
         }
 
-        this.camera.up.copy(this.params.cameraTarget.position).normalize();
-        this.camera.lookAt(this.params.cameraTarget.position);
-
-        // TODO : use Date() for dumpingTime
-        if (!this.enableDamping) {
-            this.params.sphericalDelta.theta = 0;
-            this.params.sphericalDelta.phi = 0;
-            this.params.moveAroundGlobe.set(0, 0, 0, 1);
-        } else if (this.isOutOfSphere) {
-            this.params.sphericalDelta.theta = 0;
-            this.params.sphericalDelta.phi = 0;
-            this.params.moveAroundGlobe.slerp(this.params.dampingMove, this.constants.dampingFactor * 0.5);
-        } else {
-            this.params.sphericalDelta.theta *= (1 - this.constants.dampingFactor);
-            this.params.sphericalDelta.phi *= (1 - this.constants.dampingFactor);
-            this.params.moveAroundGlobe.slerp(this.params.dampingMove, this.constants.dampingFactor * 0.2);
-        }
-
-        this.params.orbitScale = 1;
-        this.params.panVector.set(0, 0, 0);
+        this.updateDumping();
 
         // update condition is:
         // min(camera displacement, camera rotation in radians)^2 > EPS
@@ -554,6 +609,89 @@ class EarthControls extends THREE.EventDispatcher {
         }
     }
 
+    onMouseMoveDolly(coords) {
+        this.params.dollyEnd.copy(coords);
+        this.params.dollyDelta.subVectors(this.params.dollyEnd, this.params.dollyStart);
+        const gfx = this.view.mainLoop.gfxEngine;
+        const hightSpeedMove = Math.max(1, Math.abs(this.params.dollyDelta.y) / (gfx.height / 100));
+        if (this.params.dollyDelta.y > 0) {
+            this.dollyIn(this.dollyScale ** hightSpeedMove);
+        } else if (this.params.dollyDelta.y < 0) {
+            this.dollyOut(this.dollyScale ** hightSpeedMove);
+        }
+        this.params.dollyStart.copy(this.params.dollyEnd);
+    }
+
+    onMouseMovePan(coords) {
+        this.params.panEnd.copy(coords);
+        this.params.panDelta.subVectors(this.params.panEnd, this.params.panStart);
+
+        this.mouseToPan(this.params.panDelta.x, this.params.panDelta.y);
+
+        this.params.panStart.copy(this.params.panEnd);
+    }
+
+    onMouseMoveGlobe(coords) {
+        this.params.rotateEnd.copy(coords);
+        const normalized = this.view.viewToNormalizedCoords(coords);
+        this.camera.updateMatrixWorld();
+        this.params.raycaster.setFromCamera(normalized, this.camera);
+        // If there's intersection then move globe keeping intersection point
+        // else we just rotate globe
+        if (this.params.raycaster.ray.intersectSphere(this.params.pickSphere, this.params.intersection)) {
+            this.params.normalizedIntersection.copy(this.params.intersection).normalize();
+            if (this.params.lastNormalizedIntersection.lengthSq() < this.constants.EPS) {
+                this.params.lastNormalizedIntersection.copy(this.params.normalizedIntersection);
+            }
+            this.params.moveAroundGlobe.setFromUnitVectors(this.params.normalizedIntersection, this.params.lastNormalizedIntersection);
+
+            this.params.lastTimeMouseMove = Date.now();
+            this.isOutOfSphere = false;
+        } else {
+            this.params.rotateDelta.subVectors(this.params.rotateEnd, this.params.rotateStart);
+            this.params.lastNormalizedIntersection.set(0, 0, 0);
+            const gfx = this.view.mainLoop.gfxEngine;
+            const yrot = -Math.PI * this.params.rotateDelta.x / gfx.width;
+            const xrot = -Math.PI * this.params.rotateDelta.y / gfx.height;
+            this.params.outOfGlobeAxis.fromArray(this.camera.matrix.elements, 4);
+            this.params.deltaRotation.setFromAxisAngle(this.params.outOfGlobeAxis, yrot);
+            this.params.moveAroundGlobe.multiply(this.params.deltaRotation);
+            this.params.outOfGlobeAxis.fromArray(this.camera.matrix.elements, 0);
+            this.params.deltaRotation.setFromAxisAngle(this.params.outOfGlobeAxis, xrot);
+            this.params.moveAroundGlobe.multiply(this.params.deltaRotation);
+            this.params.lastTimeMouseMove = Date.now();
+
+            this.isOutOfSphere = true;
+        }
+        this.params.rotateStart.copy(this.params.rotateEnd);
+    }
+
+    onMouseMoveOrbit(coords) {
+        this.params.rotateEnd.copy(coords);
+        this.params.rotateDelta.subVectors(this.params.rotateEnd, this.params.rotateStart);
+        const gfx = this.view.mainLoop.gfxEngine;
+
+        // rotate around rotateStart point
+        this.rotateLeft(2 * Math.PI * this.params.rotateDelta.x / gfx.width * this.rotateSpeed);
+        // rotating up and down along whole screen attempts to go 360, but limited to 180
+        this.rotateUp(2 * Math.PI * this.params.rotateDelta.y / gfx.height * this.rotateSpeed);
+
+        this.params.rotateStart.copy(this.params.rotateEnd);
+    }
+
+    onMouseMovePanoramic(coords) {
+        this.params.rotateEnd.copy(coords);
+        this.params.rotateDelta.subVectors(this.params.rotateEnd, this.params.rotateStart);
+        const gfx = this.view.mainLoop.gfxEngine;
+
+        // rotate around rotateStart point
+        this.rotateLeft(2 * Math.PI * this.params.rotateDelta.x / gfx.width * this.rotateSpeed);
+        // rotating up and down along whole screen attempts to go 360, but limited to 180
+        this.rotateUp(2 * Math.PI * this.params.rotateDelta.y / gfx.height * this.rotateSpeed);
+
+        this.params.rotateStart.copy(this.params.rotateEnd);
+    }
+
     onMouseMove(event) {
         if (this.player.isPlaying()) {
             this.player.stop();
@@ -566,77 +704,21 @@ class EarthControls extends THREE.EventDispatcher {
         switch (this.state) {
             case this.states.ORBIT:
             case this.states.ORBIT_BY_MIDDLEBUTTON:
-            case this.states.PANORAMIC: {
-                this.params.rotateEnd.copy(coords);
-                this.params.rotateDelta.subVectors(this.params.rotateEnd, this.params.rotateStart);
-                const gfx = this.view.mainLoop.gfxEngine;
-
-                // rotate around rotateStart point
-                this.rotateLeft(2 * Math.PI * this.params.rotateDelta.x / gfx.width * this.rotateSpeed);
-                // rotating up and down along whole screen attempts to go 360, but limited to 180
-                this.rotateUp(2 * Math.PI * this.params.rotateDelta.y / gfx.height * this.rotateSpeed);
-
-                this.params.rotateStart.copy(this.params.rotateEnd);
+                this.onMouseMoveOrbit(coords);
                 break;
-            }
+            case this.states.PANORAMIC:
+                this.onMouseMovePanoramic(coords);
+                break;
             case this.states.DOLLY:
             case this.states.DOLLY_BY_LEFTBUTTON:
-            {
-                this.params.dollyEnd.copy(coords);
-                this.params.dollyDelta.subVectors(this.params.dollyEnd, this.params.dollyStart);
-                const gfx = this.view.mainLoop.gfxEngine;
-                const hightSpeedMove = Math.max(1, Math.abs(this.params.dollyDelta.y) / (gfx.height / 100));
-                if (this.params.dollyDelta.y > 0) {
-                    this.dollyIn(this.dollyScale ** hightSpeedMove);
-                } else if (this.params.dollyDelta.y < 0) {
-                    this.dollyOut(this.dollyScale ** hightSpeedMove);
-                }
-                this.params.dollyStart.copy(this.params.dollyEnd);
+                this.onMouseMoveDolly(coords);
                 break;
-            }
             case this.states.PAN:
-                this.params.panEnd.copy(coords);
-                this.params.panDelta.subVectors(this.params.panEnd, this.params.panStart);
-
-                this.mouseToPan(this.params.panDelta.x, this.params.panDelta.y);
-
-                this.params.panStart.copy(this.params.panEnd);
+                this.onMouseMovePan(coords);
                 break;
-            case this.states.MOVE_GLOBE: {
-                this.params.rotateEnd.copy(coords);
-                const normalized = this.view.viewToNormalizedCoords(coords);
-                this.camera.updateMatrixWorld();
-                this.params.raycaster.setFromCamera(normalized, this.camera);
-                // If there's intersection then move globe keeping intersection point
-                // else we just rotate globe
-                if (this.params.raycaster.ray.intersectSphere(this.params.pickSphere, this.params.intersection)) {
-                    this.params.normalizedIntersection.copy(this.params.intersection).normalize();
-                    if (this.params.lastNormalizedIntersection.lengthSq() < this.constants.EPS) {
-                        this.params.lastNormalizedIntersection.copy(this.params.normalizedIntersection);
-                    }
-                    this.params.moveAroundGlobe.setFromUnitVectors(this.params.normalizedIntersection, this.params.lastNormalizedIntersection);
-
-                    this.params.lastTimeMouseMove = Date.now();
-                    this.isOutOfSphere = false;
-                } else {
-                    this.params.rotateDelta.subVectors(this.params.rotateEnd, this.params.rotateStart);
-                    this.params.lastNormalizedIntersection.set(0, 0, 0);
-                    const gfx = this.view.mainLoop.gfxEngine;
-                    const yrot = -Math.PI * this.params.rotateDelta.x / gfx.width;
-                    const xrot = -Math.PI * this.params.rotateDelta.y / gfx.height;
-                    this.params.outOfGlobeAxis.fromArray(this.camera.matrix.elements, 4);
-                    this.params.deltaRotation.setFromAxisAngle(this.params.outOfGlobeAxis, yrot);
-                    this.params.moveAroundGlobe.multiply(this.params.deltaRotation);
-                    this.params.outOfGlobeAxis.fromArray(this.camera.matrix.elements, 0);
-                    this.params.deltaRotation.setFromAxisAngle(this.params.outOfGlobeAxis, xrot);
-                    this.params.moveAroundGlobe.multiply(this.params.deltaRotation);
-                    this.params.lastTimeMouseMove = Date.now();
-
-                    this.isOutOfSphere = true;
-                }
-                this.params.rotateStart.copy(this.params.rotateEnd);
+            case this.states.MOVE_GLOBE:
+                this.onMouseMoveGlobe(coords);
                 break;
-            }
             default:
         }
 
@@ -699,6 +781,35 @@ class EarthControls extends THREE.EventDispatcher {
         }
     }
 
+    onMouseDownDolly(coords) {
+        this.params.dollyStart.copy(coords);
+    }
+
+    onMouseDownPan(coords) {
+        this.params.panStart.copy(coords);
+        this.params.panAxisMatrix.copy(this.camera.matrix);
+    }
+
+    onMouseDownMoveGlobe(coords) {
+        // update picking on sphere
+        if (this.view.getPickingPositionFromDepth(coords, this.params.pickingPoint)) {
+            this.params.pickSphere.radius = this.params.pickingPoint.length();
+            this.params.lastNormalizedIntersection.copy(this.params.pickingPoint).normalize();
+            this.updateHelper(this.params.pickingPoint, this.params.helpers.picking);
+        } else {
+            // picking out of sphere
+            this.params.rotateStart.copy(coords);
+        }
+    }
+
+    onMouseDownOrbit(coords) {
+        this.params.rotateStart.copy(coords);
+    }
+
+    onMouseDownPanoramic(coords) {
+        this.params.rotateStart.copy(coords);
+    }
+
     onMouseDown(event) {
         CameraUtils.stop(this.view, this.camera);
         this.player.stop();
@@ -714,28 +825,20 @@ class EarthControls extends THREE.EventDispatcher {
         switch (this.state) {
             case this.states.ORBIT:
             case this.states.ORBIT_BY_MIDDLEBUTTON:
+                this.onMouseDownOrbit(coords);
+                break;
             case this.states.PANORAMIC:
-                this.params.rotateStart.copy(coords);
+                this.onMouseDownPanoramic(coords);
                 break;
-            case this.states.MOVE_GLOBE: {
-                // update picking on sphere
-                if (this.view.getPickingPositionFromDepth(coords, this.params.pickingPoint)) {
-                    this.params.pickSphere.radius = this.params.pickingPoint.length();
-                    this.params.lastNormalizedIntersection.copy(this.params.pickingPoint).normalize();
-                    this.updateHelper(this.params.pickingPoint, this.params.helpers.picking);
-                } else {
-                    // picking out of sphere
-                    this.params.rotateStart.copy(coords);
-                }
+            case this.states.MOVE_GLOBE:
+                this.onMouseDownMoveGlobe(coords);
                 break;
-            }
             case this.states.DOLLY:
             case this.states.DOLLY_BY_LEFTBUTTON:
-                this.params.dollyStart.copy(coords);
+                this.onMouseDownDolly(coords);
                 break;
             case this.states.PAN:
-                this.params.panStart.copy(coords);
-                this.params.panAxisMatrix.copy(this.camera.matrix);
+                this.onMouseDownPan(coords);
                 break;
             default:
         }
@@ -1009,31 +1112,6 @@ class EarthControls extends THREE.EventDispatcher {
     onBlurListener() {
         this.onKeyUp();
         this.onMouseUp();
-    }
-
-    dispose() {
-        document.documentElement.removeEventListener('contextmenu', this._onContextMenuListener, false);
-
-        this.view.domElement.removeEventListener('mousedown', this._onMouseDown, false);
-        document.documentElement.removeEventListener('mousemove', this._onMouseMove, false);
-        this.view.domElement.removeEventListener('mousewheel', this._onMouseWheel, false);
-        this.view.domElement.removeEventListener('DOMMouseScroll', this._onMouseWheel, false); // firefox
-        document.documentElement.removeEventListener('mouseup', this._onMouseUp, false);
-        // this.view.domElement.removeEventListener('mouseleave', this._onMouseUp, false);
-        this.view.domElement.removeEventListener('dblclick', this._ondblclick, false);
-
-        this.view.domElement.removeEventListener('touchstart', this._onTouchStart, false);
-        this.view.domElement.removeEventListener('touchend', this._onMouseUp, false);
-        this.view.domElement.removeEventListener('touchmove', this._onTouchMove, false);
-
-        this.player.removeEventListener('animation-frame', this._onKeyUp);
-
-        window.removeEventListener('keydown', this._onKeyDown, false);
-        window.removeEventListener('keyup', this._onKeyUp, false);
-
-        window.removeEventListener('blur', this._onBlurListener);
-
-        this.dispatchEvent({ type: 'dispose' });
     }
 
     /**
