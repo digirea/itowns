@@ -197,6 +197,7 @@ class EarthControls extends THREE.EventDispatcher {
         this.orbit = this.createOrbit();
         this.globemove = this.createGlobeMove();
         this.myorbit = this.createMyOrbit();
+        this.isMyOrbitMode = options.isOrbitMode ? options.isOrbitMode : false;
 
         this.getMinDistanceCameraBoundingSphereObbsUp = (() => {
             const sphereCamera = new THREE.Sphere();
@@ -923,6 +924,7 @@ class EarthControls extends THREE.EventDispatcher {
     }
 
     ondblclick(event) {
+        if (this.isMyOrbitMode) { return; }
         if (this.enabled === false || this.params.currentKey) { return; }
         this.player.stop();
         const point = this.view.getPickingPositionFromDepth(this.view.eventToViewCoords(event));
@@ -1123,7 +1125,7 @@ class EarthControls extends THREE.EventDispatcher {
         }
         this.myorbit = this.createMyOrbit();
         this.myorbit.init(this.camera.position.clone(), this.params.cameraTarget.position.clone());
-        
+
         this.dolly = this.createDolly();
         this.panoramic = this.createPanoramic();
         this.orbit = this.createOrbit();
@@ -1135,6 +1137,12 @@ class EarthControls extends THREE.EventDispatcher {
         this.isMyOrbitMode = preOrbitMode;
 
         this.view.notifyChange(this._camera3D);
+    }
+
+    fitCamera(bbox) {
+        if (this.isMyOrbitMode) {
+            this.myorbit.fitCamera(bbox);
+        }
     }
 
     /*

@@ -337,7 +337,7 @@ class OrbitControls extends THREE.EventDispatcher {
         const centerToEyeLen = radius / Math.sin(this._camera3D.fov / 2 * Math.PI / 180);
 
         this._camera3D.far = centerToEyeLen + radius * 2;
-        this._camera3D.near = Math.max(1.0, this._camera3D.far) / 1.0e6;
+        this._camera3D.near = this._camera3D.far / 1.0e8;
 
         this._eye = (new THREE.Vector3(
             centerPoint.x + centerToEyeLen,
