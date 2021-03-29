@@ -136,7 +136,10 @@ export default {
             }
 
             // Parse batch table
-            if (b3dmHeader.BTJSONLength > 0) {
+            if (b3dmHeader.BTBinaryLength > 0) {
+                console.warn('Binary batch table content not supported yet.');
+            }
+            if (b3dmHeader.BTJSONLength > 0 && b3dmHeader.BTBinaryLength === 0) {
                 // sizeBegin is an index to the beginning of the batch table
                 const sizeBegin = headerByteLength + b3dmHeader.FTJSONLength +
                     b3dmHeader.FTBinaryLength;
